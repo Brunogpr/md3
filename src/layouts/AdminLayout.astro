@@ -1,0 +1,62 @@
+---
+import '@fontsource-variable/outfit';
+import '@fontsource-variable/plus-jakarta-sans';
+import '../styles/global.css';
+import '../styles/admin.css';
+
+interface Props {
+  title: string;
+  /** Item ativo do menu. */
+  section?: 'produtos' | 'pedidos' | 'configuracoes';
+}
+
+const { title, section } = Astro.props;
+const admin = Astro.locals.admin;
+const nav = [
+  { id: 'produtos', href: '/admin', label: 'Produtos' },
+  { id: 'pedidos', href: '/admin/pedidos', label: 'Encomendas' },
+  { id: 'configuracoes', href: '/admin/configuracoes', label: 'Configurações' },
+] as const;
+---
+
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title} — Painel MOLDEA.es</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+  </head>
+  <body class="admin">
+    {
+      admin && (
+        <header class="admin-bar">
+          <a class="admin-bar__brand" href="/admin">
+            <img src="/favicon.png" alt="" width="28" height="28" />
+            Painel MOLDEA.es
+          </a>
+          <nav aria-label="Painel">
+            {nav.map((item) => (
+              <a href={item.href} aria-current={section === item.id ? 'page' : undefined}>
+                {item.label}
+              </a>
+            ))}
+            <a href="/" target="_blank" rel="noopener">
+              Ver site ↗
+            </a>
+          </nav>
+          <form method="post" action="/admin/logout" class="admin-bar__logout">
+            <span class="admin-bar__user">{admin.email}</span>
+            <button type="submit" class="btn btn--outline btn--small">
+              Sair
+            </button>
+          </form>
+        </header>
+      )
+    }
+    <main class="admin-main" id="conteudo">
+      <slot />
+    </main>
+  </body>
+</html>

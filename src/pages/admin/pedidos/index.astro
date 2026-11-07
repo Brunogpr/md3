@@ -1,0 +1,63 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { listOrders } from '../../../server/orders';
+import { formatPrice } from '../../../lib/cart';
+import { STATUS_LABELS, statusTone } from '../../../lib/order-status';
+
+export const prerender = false;
+
+const showAll = Astro.url.searchParams.get('todas') === '1';
+const orders = await listOrders(showAll);
+const dateFmt = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
+---
+
+<AdminLayout title="Encomendas" section="pedidos">
+  <div class="admin-head">
+    <h1>Encomendas</h1>
+    <a class="btn btn--outline btn--small" href={showAll ? '/admin/pedidos' : '/admin/pedidos?todas=1'}>
+      {showAll ? 'Só pagas' : 'Incluir não concluídas (pendentes, expiradas)'}
+    </a>
+  </div>
+  <p class="hint">
+    O pagamento é confirmado pela Stripe. Reembolsos e recibos fazem-se no painel da Stripe (dashboard.stripe.com).
+  </p>
+  <section class="panel">
+    {
+      orders.length === 0 ? (
+        <p>Ainda não há encomendas.</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Referência</th>
+                <th scope="col">Cliente</th>
+                <th scope="col">Total</th>
+                <th scope="col">Estado</th>
+                <th scope="col"><span class="visually-hidden">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr>
+                  <td>{dateFmt.format(o.createdAt)}</td>
+                  <td><code>{o.id.slice(0, 8).toUpperCase()}</code></td>
+                  <td>
+                    {o.customerName ?? '—'}
+                    <div class="hint">{o.email ?? ''}</div>
+                  </td>
+                  <td>{formatPrice(o.totalCents, 'pt-PT')}</td>
+                  <td><span class={`tag ${statusTone(o.status)}`}>{STATUS_LABELS[o.status]}</span></td>
+                  <td>
+                    <a class="btn btn--outline btn--small" href={`/admin/pedidos/${o.id}`}>Abrir</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </section>
+</AdminLayout>

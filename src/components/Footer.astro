@@ -1,0 +1,197 @@
+---
+import { Image } from 'astro:assets';
+import Icon from './Icon.astro';
+import logo from '../assets/brand/logo-moldea.png';
+import type { LegalLinks } from '../server/settings';
+import { getDictionary, homePath, productsPath, quotePath, type Locale } from '../i18n';
+import { sectionIds, siteConfig, socialLabels, telLink, whatsappLink, type SocialNetwork } from '../config/site';
+
+interface Props {
+  locale: Locale;
+  legal?: LegalLinks;
+}
+
+const { locale, legal } = Astro.props;
+const t = getDictionary(locale);
+const { email, phone, whatsapp } = siteConfig.contact;
+
+const navLinks = [
+  { href: homePath(locale, sectionIds.home), label: t.nav.home },
+  { href: productsPath(locale), label: t.nav.products },
+  { href: homePath(locale, sectionIds.customization), label: t.nav.customization },
+  { href: homePath(locale, sectionIds.about), label: t.nav.about },
+  { href: quotePath(locale), label: t.nav.quoteCta },
+];
+
+const socials = (Object.entries(siteConfig.social) as [SocialNetwork, string | null][]).filter(
+  (entry): entry is [SocialNetwork, string] => Boolean(entry[1]),
+);
+
+const legalLinks = [
+  { href: legal?.legalNoticeUrl, label: t.footer.legalNotice },
+  { href: legal?.privacyUrl, label: t.footer.privacy },
+  { href: legal?.termsUrl, label: t.footer.terms },
+  { href: legal?.cookiesUrl, label: t.footer.cookies },
+].filter((link): link is { href: string; label: string } => Boolean(link.href));
+
+// O ano é gerado no build e atualizado no navegador (ver scripts/reveal.ts).
+const [rightsBefore, rightsAfter = ''] = t.footer.rights.split('{year}');
+const buildYear = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container site-footer__grid">
+    <div class="site-footer__brand">
+      <a href={homePath(locale)} class="site-footer__logo">
+        <Image src={logo} alt={t.a11y.homeLink} width={200} densities={[1, 2]} loading="lazy" />
+      </a>
+      <p class="site-footer__slogan">{siteConfig.slogan}</p>
+      <p class="site-footer__tagline">{t.footer.tagline}</p>
+    </div>
+
+    <nav aria-label={t.a11y.footerNav}>
+      <h2 class="site-footer__title">{t.footer.navTitle}</h2>
+      <ul class="site-footer__list">
+        {navLinks.map((link) => <li><a href={link.href}>{link.label}</a></li>)}
+      </ul>
+    </nav>
+
+    <div>
+      <h2 class="site-footer__title">{t.footer.contactTitle}</h2>
+      <ul class="site-footer__list">
+        {email && <li><a href={`mailto:${email}`}><Icon name="mail" size={18} />{email}</a></li>}
+        {phone && <li><a href={telLink(phone)}><Icon name="phone" size={18} />{phone}</a></li>}
+        {whatsapp && <li><a href={whatsappLink(t.quote.whatsappGeneralMessage)} rel="noopener" target="_blank"><Icon name="message" size={18} />WhatsApp</a></li>}
+        {!email && !phone && !whatsapp && <li><a href={quotePath(locale)}>{t.footer.contactViaForm}</a></li>}
+      </ul>
+
+      {
+        socials.length > 0 && (
+          <>
+            <h2 class="site-footer__title site-footer__title--spaced">{t.footer.socialTitle}</h2>
+            <ul class="site-footer__list">
+              {socials.map(([network, url]) => (
+                <li>
+                  <a href={url} rel="noopener me" target="_blank">
+                    <Icon name={network === 'instagram' ? 'instagram' : 'link'} size={18} />
+                    {socialLabels[network]}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      }
+    </div>
+
+    {
+      legalLinks.length > 0 && (
+        <div>
+          <h2 class="site-footer__title">{t.footer.legalTitle}</h2>
+          <ul class="site-footer__list">
+            {legalLinks.map((link) => <li><a href={link.href}>{link.label}</a></li>)}
+          </ul>
+        </div>
+      )
+    }
+  </div>
+
+  <div class="container site-footer__bottom">
+    <p>{rightsBefore}<span data-current-year>{buildYear}</span>{rightsAfter}</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    padding-top: clamp(3.5rem, 2.5rem + 4vw, 6rem);
+    background: var(--bg-sand);
+    border-top: 1px solid var(--line);
+    font-size: 0.95rem;
+  }
+
+  .site-footer__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+    gap: 2.5rem;
+  }
+
+  .site-footer__brand {
+    display: grid;
+    gap: 0.75rem;
+    justify-items: start;
+    max-width: 22rem;
+  }
+
+  .site-footer__logo img {
+    width: 180px;
+    height: auto;
+  }
+
+  .site-footer__slogan {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.15rem;
+  }
+
+  .site-footer__tagline {
+    color: var(--ink-soft);
+  }
+
+  .site-footer__title {
+    margin-bottom: 1rem;
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .site-footer__title--spaced {
+    margin-top: 2rem;
+  }
+
+  .site-footer__list {
+    display: grid;
+    gap: 0.6rem;
+    list-style: none;
+  }
+
+  .site-footer__list a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .site-footer__list a:hover {
+    color: var(--blue-ink);
+    text-decoration: underline;
+  }
+
+  .site-footer__bottom {
+    margin-top: clamp(2.5rem, 2rem + 2vw, 4rem);
+    padding-block: 1.5rem 2rem;
+    border-top: 1px solid var(--line-strong);
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  @media (max-width: 899px) {
+    .site-footer__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .site-footer__brand {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 479px) {
+    .site-footer__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

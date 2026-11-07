@@ -1,0 +1,52 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { attemptLogin, createSession } from '../../server/auth';
+
+export const prerender = false;
+
+// Só aceita destinos internos do painel (evita redirecionamentos para outros sites).
+const rawNext = Astro.url.searchParams.get('next') ?? '/admin';
+const next = /^\/admin(\/[\w\-/]*)?$/.test(rawNext) ? rawNext : '/admin';
+
+if (Astro.locals.admin) return Astro.redirect(next, 303);
+
+let error = '';
+let email = '';
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  email = String(fd.get('email') ?? '').slice(0, 200);
+  const password = String(fd.get('password') ?? '').slice(0, 500);
+  const result = await attemptLogin(email, password);
+  if (result.ok) {
+    await createSession(result.admin.id, Astro.cookies, Astro.url.protocol === 'https:');
+    return Astro.redirect(next, 303);
+  }
+  error =
+    result.reason === 'locked'
+      ? 'Demasiadas tentativas falhadas. Aguarde 15 minutos e tente novamente.'
+      : 'E-mail ou palavra-passe incorretos.';
+  Astro.response.status = result.reason === 'locked' ? 429 : 401;
+}
+---
+
+<AdminLayout title="Entrar">
+  <div class="login">
+    <form method="post" class="panel" novalidate>
+      <img src="/icon-512.png" alt="" width="64" height="64" style="border-radius: 16px" />
+      <h1 style="font-size: 1.6rem">Painel MOLDEA.es</h1>
+      {error && <p class="notice notice--error" role="alert">{error}</p>}
+      <div class="f">
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" autocomplete="username" required value={email} />
+      </div>
+      <div class="f">
+        <label for="password">Palavra-passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="btn btn--primary">Entrar</button>
+      <p class="hint">
+        Sem acesso? A conta é criada com <code>npm run admin:create</code> (ver README).
+      </p>
+    </form>
+  </div>
+</AdminLayout>

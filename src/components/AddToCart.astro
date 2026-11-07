@@ -1,0 +1,34 @@
+---
+// Botão "Adicionar ao carrinho". Os dados no atributo servem só para mostrar o carrinho;
+// o servidor volta a validar preço, stock e disponibilidade no pagamento.
+import Icon from './Icon.astro';
+import { getDictionary, productPath, type Locale } from '../i18n';
+import type { PublicProduct } from '../server/products';
+
+interface Props {
+  product: PublicProduct;
+  locale: Locale;
+  small?: boolean;
+}
+
+const { product, locale, small = false } = Astro.props;
+const t = getDictionary(locale);
+const payload = JSON.stringify({
+  productId: product.id,
+  slug: product.slug,
+  name: product.name,
+  priceCents: product.priceCents,
+  stock: product.stock,
+  image: product.images[0]?.thumbUrl ?? null,
+  href: productPath(locale, product.slug),
+});
+---
+
+<button
+  type="button"
+  class:list={['btn btn--primary magnetic', { 'btn--small': small }]}
+  data-add-to-cart={payload}
+>
+  <Icon name="bag" size={18} />
+  {t.store.addToCart}
+</button>

@@ -1,0 +1,178 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+import { getDictionary, quotePath, type Locale } from '../i18n';
+import { sectionIds } from '../config/site';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale);
+const stepIcons: IconName[] = ['lightbulb', 'search', 'file'];
+---
+
+<section class="section customization" id={sectionIds.customization} aria-labelledby="customization-title">
+  <div class="customization__layers" aria-hidden="true"></div>
+  <div class="container">
+    <div class="customization__intro reveal">
+      <p class="eyebrow customization__eyebrow">{t.customization.eyebrow}</p>
+      <h2 id="customization-title" class="split-words">{t.customization.title}</h2>
+      <p>{t.customization.text}</p>
+    </div>
+
+    <ol class="steps">
+      {
+        t.customization.steps.map((step, index) => (
+          <li class="step reveal tilt">
+            <div class="step__top">
+              <span class="step__number" aria-hidden="true">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span class="step__icon">
+                <Icon name={stepIcons[index]} size={26} />
+              </span>
+            </div>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <div class="customization__footer reveal">
+      <a
+        class="btn btn--primary"
+        href={quotePath(locale, undefined, 'personalizado')}
+        data-quote-product=""
+        data-quote-type="personalizado"
+      >
+        {t.customization.cta}
+        <Icon name="arrow-right" />
+      </a>
+      <p class="customization__note">{t.customization.note}</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .customization {
+    position: relative;
+    overflow: clip;
+    background: var(--band-bg);
+    color: #fff;
+  }
+
+  /* Linhas horizontais que evocam as camadas de uma impressão 3D. */
+  .customization__layers {
+    position: absolute;
+    top: -20%;
+    right: -12%;
+    width: min(60vw, 720px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 13px, rgb(8 125 213 / 0.22) 13px 15px),
+      radial-gradient(closest-side, rgb(8 125 213 / 0.3), transparent);
+    mask-image: radial-gradient(closest-side, #000 40%, transparent);
+    pointer-events: none;
+  }
+
+  .customization__intro {
+    position: relative;
+    display: grid;
+    gap: 1.1rem;
+    max-width: 42rem;
+    margin-bottom: clamp(2.5rem, 2rem + 2vw, 4rem);
+  }
+
+  .customization__eyebrow {
+    color: #7cc0f5;
+  }
+
+  .customization__intro h2 {
+    font-size: var(--step-3);
+  }
+
+  .customization__intro p:last-child {
+    font-size: var(--step-1);
+    color: rgb(255 255 255 / 0.8);
+  }
+
+  .steps {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(1rem, 0.75rem + 1vw, 1.75rem);
+    list-style: none;
+  }
+
+  .step {
+    display: grid;
+    align-content: start;
+    gap: 0.85rem;
+    padding: 1.75rem;
+    border-radius: var(--radius-lg);
+    background: var(--band-surface);
+    border: 1px solid rgb(255 255 255 / 0.1);
+  }
+
+  .step__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .step__number {
+    font-family: var(--font-display);
+    font-size: 2.75rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--orange);
+  }
+
+  .step__icon {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 14px;
+    background: rgb(255 255 255 / 0.08);
+    color: #9fd0f7;
+  }
+
+  .step h3 {
+    font-size: 1.35rem;
+  }
+
+  .step p {
+    color: rgb(255 255 255 / 0.76);
+    font-size: 0.97rem;
+  }
+
+  .customization__footer {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem 2rem;
+    margin-top: clamp(2.5rem, 2rem + 2vw, 3.5rem);
+  }
+
+  .customization__note {
+    max-width: 34rem;
+    font-size: 0.9rem;
+    color: rgb(255 255 255 / 0.7);
+  }
+
+  .customization :global(:focus-visible) {
+    outline-color: #7cc0f5;
+  }
+
+  @media (max-width: 899px) {
+    .steps {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

@@ -1,0 +1,41 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Hero from '../components/Hero.astro';
+import ProductCatalog from '../components/ProductCatalog.astro';
+import FeaturedProduct from '../components/FeaturedProduct.astro';
+import CustomizationSection from '../components/CustomizationSection.astro';
+import BenefitsSection from '../components/BenefitsSection.astro';
+import AboutSection from '../components/AboutSection.astro';
+import FaqSection from '../components/FaqSection.astro';
+import QuoteForm from '../components/QuoteForm.astro';
+import Footer from '../components/Footer.astro';
+import CartDrawer from '../components/CartDrawer.astro';
+import { getDictionary, homePath, locales, type Locale } from '../i18n';
+import type { Storefront } from '../server/storefront';
+
+interface Props {
+  locale: Locale;
+  store: Storefront;
+}
+
+const { locale, store } = Astro.props;
+const t = getDictionary(locale);
+const alternates = Object.fromEntries(locales.map((l) => [l, homePath(l)]));
+---
+
+<BaseLayout locale={locale} title={t.meta.title} description={t.meta.description} alternates={alternates} preloader>
+  <Header locale={locale} alternates={alternates} selling={store.selling} />
+  <main id="conteudo">
+    <Hero locale={locale} />
+    <ProductCatalog locale={locale} products={store.homeProducts} selling={store.selling} />
+    {store.featured && <FeaturedProduct locale={locale} product={store.featured} selling={store.selling} />}
+    <CustomizationSection locale={locale} />
+    <BenefitsSection locale={locale} />
+    <AboutSection locale={locale} />
+    <FaqSection locale={locale} selling={store.selling} />
+    <QuoteForm locale={locale} products={store.products} privacyUrl={store.settings.legal.privacyUrl || undefined} />
+  </main>
+  <Footer locale={locale} legal={store.settings.legal} />
+  {store.selling && <CartDrawer locale={locale} settings={store.settings} />}
+</BaseLayout>

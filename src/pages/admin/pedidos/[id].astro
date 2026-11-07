@@ -1,0 +1,101 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { ADMIN_STATUSES, getOrder, updateOrderStatus } from '../../../server/orders';
+import { formatPrice } from '../../../lib/cart';
+import { STATUS_LABELS, statusTone } from '../../../lib/order-status';
+import type { OrderStatus } from '../../../server/db/schema';
+
+export const prerender = false;
+
+const id = String(Astro.params.id ?? '');
+let order = /^[0-9a-f-]{36}$/.test(id) ? await getOrder(id) : null;
+if (!order) return Astro.redirect('/admin/pedidos', 303);
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const status = String(fd.get('status')) as OrderStatus;
+  if (ADMIN_STATUSES.includes(status)) {
+    await updateOrderStatus(order.id, status, String(fd.get('notes') ?? ''));
+    return Astro.redirect(`/admin/pedidos/${order.id}?ok=1`, 303);
+  }
+}
+
+const eur = (c: number) => formatPrice(c, 'pt-PT');
+const dateFmt = new Intl.DateTimeFormat('pt-PT', { dateStyle: 'long', timeStyle: 'short' });
+const a = order.shippingAddress;
+const editable = ADMIN_STATUSES.includes(order.status);
+const stripeUrl = order.stripePaymentIntent ? `https://dashboard.stripe.com/payments/${order.stripePaymentIntent}` : null;
+---
+
+<AdminLayout title={`Encomenda ${order.id.slice(0, 8).toUpperCase()}`} section="pedidos">
+  <div class="admin-head">
+    <h1>Encomenda <code>{order.id.slice(0, 8).toUpperCase()}</code></h1>
+    <a class="btn btn--outline btn--small" href="/admin/pedidos">← Encomendas</a>
+  </div>
+  {Astro.url.searchParams.get('ok') && <p class="notice notice--ok" role="status">Estado atualizado.</p>}
+
+  <section class="panel">
+    <p>
+      <span class={`tag ${statusTone(order.status)}`}>{STATUS_LABELS[order.status]}</span>
+      <span class="hint"> · criada em {dateFmt.format(order.createdAt)}{order.paidAt && ` · paga em ${dateFmt.format(order.paidAt)}`}</span>
+    </p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr><th scope="col">Produto</th><th scope="col">Qtd.</th><th scope="col">Preço</th><th scope="col">Total</th></tr>
+        </thead>
+        <tbody>
+          {order.items.map((i) => (
+            <tr><td>{i.name}</td><td>{i.quantity}</td><td>{eur(i.unitPriceCents)}</td><td>{eur(i.unitPriceCents * i.quantity)}</td></tr>
+          ))}
+          <tr><td colspan="3">Portes</td><td>{eur(order.shippingCents)}</td></tr>
+          <tr><th scope="row" colspan="3">Total</th><td><strong>{eur(order.totalCents)}</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Cliente e envio</h2>
+    <p>
+      <strong>{order.customerName ?? '—'}</strong><br />
+      {order.email && <a href={`mailto:${order.email}`}>{order.email}</a>}
+      {order.phone && <><br /><a href={`tel:${order.phone}`}>{order.phone}</a></>}
+    </p>
+    {
+      a ? (
+        <address style="font-style: normal">
+          {a.line1}<br />
+          {a.line2 && <>{a.line2}<br /></>}
+          {a.postalCode} {a.city}{a.state && `, ${a.state}`}<br />
+          {a.country}
+        </address>
+      ) : (
+        <p class="hint">Morada ainda não recebida (pagamento por concluir).</p>
+      )
+    }
+    {stripeUrl && <a href={stripeUrl} target="_blank" rel="noopener">Ver pagamento na Stripe ↗</a>}
+  </section>
+
+  {
+    editable && (
+      <form method="post" class="panel">
+        <h2>Atualizar estado</h2>
+        <div class="f">
+          <label for="status">Estado</label>
+          <select id="status" name="status">
+            {ADMIN_STATUSES.map((s) => (
+              <option value={s} selected={s === order!.status}>{STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        </div>
+        <div class="f">
+          <label for="notes">Notas internas</label>
+          <textarea id="notes" name="notes" maxlength="2000">{order.notes}</textarea>
+        </div>
+        <p class="hint">Cancelar aqui não reembolsa: o reembolso faz-se no painel da Stripe.</p>
+        <div class="actions"><button class="btn btn--primary" type="submit">Guardar</button></div>
+      </form>
+    )
+  }
+</AdminLayout>

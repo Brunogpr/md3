@@ -1,0 +1,190 @@
+---
+import Icon from './Icon.astro';
+import ProductImage from './ProductImage.astro';
+import AddToCart from './AddToCart.astro';
+import { getDictionary, interpolate, localeSettings, productPath, quotePath, type Locale } from '../i18n';
+import { getCategory } from '../data/categories';
+import { formatPrice } from '../lib/cart';
+import { isAvailable, type PublicProduct } from '../server/products';
+
+interface Props {
+  product: PublicProduct;
+  locale: Locale;
+  selling: boolean;
+  headingLevel?: 'h3' | 'h2';
+}
+
+const { product, locale, selling, headingLevel: Heading = 'h3' } = Astro.props;
+const t = getDictionary(locale);
+const detailsHref = productPath(locale, product.slug);
+const primaryCategory = product.categories[0] ? getCategory(product.categories[0]) : undefined;
+const nameId = `product-${product.slug}`;
+const image = product.images[0];
+const soldOut = product.priceCents !== null && product.stock !== null && product.stock <= 0;
+const canBuy = selling && isAvailable(product);
+---
+
+<article class="product-card tilt" data-product-card data-categories={product.categories.join(' ')} aria-labelledby={nameId}>
+  <a class="product-card__media" href={detailsHref} tabindex="-1" aria-hidden="true">
+    {image && <ProductImage image={image} sizes="(max-width: 639px) 92vw, (max-width: 1023px) 46vw, 380px" decorative />}
+    {soldOut && <span class="product-card__badge">{t.store.soldOut}</span>}
+  </a>
+  <div class="product-card__body">
+    {primaryCategory && <p class="product-card__category">{primaryCategory.label[locale]}</p>}
+    <Heading class="product-card__name" id={nameId}>
+      <a href={detailsHref}>{product.name}</a>
+    </Heading>
+    {product.short && <p class="product-card__text">{product.short}</p>}
+    <p class="product-card__price">
+      {
+        product.priceCents === null ? (
+          <span class="price price--request">{t.store.priceOnRequest}</span>
+        ) : (
+          <>
+            <span class="price">{formatPrice(product.priceCents, localeSettings[locale].intl)}</span>
+            <span class="price__note">{t.store.vatIncluded}</span>
+          </>
+        )
+      }
+    </p>
+    {
+      canBuy && product.stock !== null && product.stock <= 5 && (
+        <p class="product-card__stock">{interpolate(t.store.lowStock, { count: product.stock })}</p>
+      )
+    }
+    <div class="product-card__actions">
+      <a class="text-link" href={detailsHref} aria-describedby={nameId}>
+        {t.catalog.viewDetails}
+        <Icon name="arrow-right" />
+      </a>
+      {
+        canBuy ? (
+          <AddToCart product={product} locale={locale} small />
+        ) : (
+          <a
+            class="btn btn--outline btn--small magnetic"
+            href={quotePath(locale, product.slug, 'catalogo')}
+            data-quote-product={product.slug}
+            data-quote-type="catalogo"
+            aria-describedby={nameId}
+          >
+            {t.catalog.requestQuote}
+          </a>
+        )
+      }
+    </div>
+  </div>
+</article>
+
+<style>
+  .product-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition:
+      box-shadow 0.35s var(--ease),
+      border-color 0.3s ease;
+  }
+
+  .product-card:hover {
+    box-shadow: var(--shadow);
+    border-color: var(--line-strong);
+  }
+
+  .product-card__media {
+    position: relative;
+    display: block;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: var(--bg-sand);
+  }
+
+  .product-card__media :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 75%;
+    transition: transform 0.7s var(--ease);
+  }
+
+  .product-card:hover .product-card__media :global(img) {
+    transform: scale(1.05);
+  }
+
+  .product-card__badge {
+    position: absolute;
+    top: 0.9rem;
+    left: 0.9rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: var(--contrast-bg);
+    color: var(--contrast-fg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .product-card__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 1.05rem 1.1rem 1.2rem;
+  }
+
+  .product-card__category {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sage-ink);
+  }
+
+  .product-card__name {
+    font-size: 1.12rem;
+    line-height: 1.25;
+  }
+
+  .product-card__name a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .product-card__name a:hover {
+    color: var(--blue-ink);
+  }
+
+  .product-card__text {
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .product-card__price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+  }
+
+  .product-card__stock {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--orange-ink);
+  }
+
+  .product-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem 0.8rem;
+    margin-top: auto;
+    padding-top: 0.7rem;
+  }
+</style>

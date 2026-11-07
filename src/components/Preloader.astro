@@ -1,0 +1,107 @@
+---
+// Ecrã de carregamento: o ícone "imprime-se" de baixo para cima enquanto a página carrega.
+// Ativado no <head> (atributo data-preload) só na 1.ª visita da sessão e sem "reduzir movimento".
+---
+
+<div class="preloader" aria-hidden="true" data-preloader>
+  <div class="preloader__icon">
+    <img src="/icon-512.png" alt="" width="160" height="160" class="preloader__ghost" />
+    <div class="preloader__fill" data-preloader-fill>
+      <img src="/icon-512.png" alt="" width="160" height="160" />
+    </div>
+  </div>
+  <span class="preloader__percent" data-preloader-percent>0%</span>
+</div>
+
+<script>
+  const root = document.documentElement;
+  const el = document.querySelector<HTMLElement>('[data-preloader]');
+  if (el && root.hasAttribute('data-preload')) {
+    const fill = el.querySelector<HTMLElement>('[data-preloader-fill]')!;
+    const label = el.querySelector<HTMLElement>('[data-preloader-percent]')!;
+    const started = performance.now();
+    const MIN = 700;
+    const MAX = 1600;
+    let loaded = document.readyState === 'complete';
+    window.addEventListener('load', () => (loaded = true));
+    const tick = (now: number) => {
+      const elapsed = now - started;
+      // Avança com o tempo; só chega a 100% quando a página carregou (ou ao fim de MAX ms).
+      const target = loaded || elapsed > MAX ? 100 : Math.min(92, (elapsed / MAX) * 100);
+      const value = Math.min(100, Math.max(Number(fill.dataset.v ?? 0), target));
+      fill.dataset.v = String(value);
+      fill.style.setProperty('--p', `${value}%`);
+      label.textContent = `${Math.round(value)}%`;
+      if (value >= 100 && elapsed > MIN) {
+        el.classList.add('is-done');
+        window.setTimeout(() => root.removeAttribute('data-preload'), 500);
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+</script>
+
+<style>
+  .preloader {
+    display: none;
+  }
+
+  :global(html[data-preload]) .preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 1rem;
+    background: var(--bg);
+    transition:
+      opacity 0.45s ease,
+      visibility 0s linear 0.45s;
+  }
+
+  :global(html[data-preload]) {
+    overflow: hidden;
+  }
+
+  .preloader.is-done {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .preloader__icon {
+    position: relative;
+    width: 160px;
+    height: 160px;
+  }
+
+  .preloader__icon img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 32px;
+  }
+
+  .preloader__ghost {
+    filter: grayscale(1);
+    opacity: 0.18;
+  }
+
+  /* Revela de baixo para cima em "camadas" de 4 px, como uma impressão 3D. */
+  .preloader__fill {
+    position: absolute;
+    inset: 0;
+    clip-path: inset(calc(100% - round(down, var(--p, 0%), 4%)) 0 0 0);
+  }
+
+  .preloader__percent {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+</style>

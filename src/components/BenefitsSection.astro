@@ -1,0 +1,106 @@
+---
+import Icon, { type IconName } from './Icon.astro';
+import { getDictionary, type Locale } from '../i18n';
+import { sectionIds } from '../config/site';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getDictionary(locale);
+const icons: IconName[] = ['sparkles', 'palette', 'heart', 'target'];
+const tones = ['blue', 'orange', 'sage', 'sand'] as const;
+---
+
+<section class="section benefits" id={sectionIds.benefits} aria-labelledby="benefits-title">
+  <div class="container">
+    <div class="section-heading section-heading--center reveal">
+      <p class="eyebrow">{t.benefits.eyebrow}</p>
+      <h2 id="benefits-title" class="split-words">{t.benefits.title}</h2>
+    </div>
+
+    <ul class="benefits__grid" role="list">
+      {
+        t.benefits.items.map((item, index) => (
+          <li class:list={['benefit reveal tilt', `benefit--${tones[index % tones.length]}`]}>
+            <span class="benefit__icon">
+              <Icon name={icons[index % icons.length]} size={26} />
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<style>
+  .benefits__grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: clamp(1rem, 0.75rem + 1vw, 1.5rem);
+    list-style: none;
+  }
+
+  .benefit {
+    --tone: var(--blue-soft);
+    --tone-ink: var(--blue-ink);
+    display: grid;
+    align-content: start;
+    gap: 0.8rem;
+    padding: 1.75rem 1.5rem;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  .benefit--orange {
+    --tone: var(--orange-soft);
+    --tone-ink: var(--orange-ink);
+  }
+
+  .benefit--sage {
+    --tone: var(--sage);
+    --tone-ink: var(--sage-ink);
+  }
+
+  .benefit--sand {
+    --tone: var(--bg-sand-deep);
+    --tone-ink: var(--ink);
+  }
+
+  .benefit__icon {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: 0.6rem;
+    border-radius: 16px;
+    background: var(--tone);
+    color: var(--tone-ink);
+  }
+
+  .benefit h3 {
+    font-size: 1.2rem;
+    line-height: 1.25;
+  }
+
+  .benefit p {
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 1023px) {
+    .benefits__grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 559px) {
+    .benefits__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

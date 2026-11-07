@@ -1,0 +1,104 @@
+---
+import '@fontsource-variable/outfit';
+import '@fontsource-variable/plus-jakarta-sans';
+import '../styles/global.css';
+
+import { getDictionary, localeSettings, publishedLocales, defaultLocale, type Locale } from '../i18n';
+import { siteConfig } from '../config/site';
+import logo from '../assets/brand/logo-moldea.png';
+import Preloader from '../components/Preloader.astro';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** URL equivalente em cada idioma (para hreflang e seletor de idioma). */
+  alternates?: Partial<Record<Locale, string>>;
+  noindex?: boolean;
+  ogImage?: string;
+  /** Mostra o ecrã de carregamento (só na 1.ª visita da sessão). */
+  preloader?: boolean;
+}
+
+const { locale, title, description, alternates = {}, noindex = false, ogImage = '/og-image.jpg', preloader = false } = Astro.props;
+const t = getDictionary(locale);
+const settings = localeSettings[locale];
+const site = Astro.site;
+
+const absolute = (path: string) => (site ? new URL(path, site).href : undefined);
+const canonical = site ? new URL(Astro.url.pathname, site).href : undefined;
+const hreflangs = publishedLocales
+  .filter((l) => alternates[l])
+  .map((l) => ({ lang: localeSettings[l].htmlLang, href: absolute(alternates[l]!) }));
+const xDefault = alternates[defaultLocale] ? absolute(alternates[defaultLocale]!) : undefined;
+
+const organizationJsonLd = site
+  ? JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name: siteConfig.brandName,
+      slogan: siteConfig.slogan,
+      url: site.href,
+      logo: new URL(logo.src, site).href,
+      ...(siteConfig.contact.email ? { email: siteConfig.contact.email } : {}),
+      sameAs: Object.values(siteConfig.social).filter(Boolean),
+    }).replace(/</g, '\\u003c')
+  : undefined;
+---
+
+<!doctype html>
+<html lang={settings.htmlLang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {preloader && <meta name="moldea-preloader" content="1" />}
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
+    {canonical && !noindex && <link rel="canonical" href={canonical} />}
+    {
+      hreflangs.length > 1 &&
+        hreflangs.map((h) => <link rel="alternate" hreflang={h.lang} href={h.href} />)
+    }
+    {hreflangs.length > 1 && xDefault && <link rel="alternate" hreflang="x-default" href={xDefault} />}
+
+    <meta name="theme-color" content="#fafafb" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteConfig.brandName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content={settings.ogLocale} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {absolute(ogImage) && <meta property="og:image" content={absolute(ogImage)} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    {organizationJsonLd && <script type="application/ld+json" set:html={organizationJsonLd} />}
+
+    <script is:inline>
+      document.documentElement.classList.add('js');
+      // Ecrã de carregamento: só na 1.ª página da sessão e sem "reduzir movimento".
+      try {
+        if (
+          document.querySelector('meta[name="moldea-preloader"]') &&
+          !sessionStorage.getItem('moldea-preloaded') &&
+          !matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+          document.documentElement.setAttribute('data-preload', '');
+          sessionStorage.setItem('moldea-preloaded', '1');
+        }
+      } catch {
+        // armazenamento indisponível (modo privado): segue com o tema claro
+      }
+    </script>
+  </head>
+  <body>
+    {preloader && <Preloader />}
+    <a class="skip-link" href="#conteudo">{t.a11y.skipToContent}</a>
+    <slot />
+    <script>
+      import '../scripts/reveal';
+    </script>
+  </body>
+</html>

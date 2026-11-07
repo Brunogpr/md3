@@ -1,0 +1,391 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Icon from '../components/Icon.astro';
+import ProductCard from '../components/ProductCard.astro';
+import ProductImage from '../components/ProductImage.astro';
+import AddToCart from '../components/AddToCart.astro';
+import CartDrawer from '../components/CartDrawer.astro';
+import { getDictionary, interpolate, localeSettings, locales, productPath, productsPath, quotePath, type Locale } from '../i18n';
+import { whatsappLink } from '../config/site';
+import { getCategory } from '../data/categories';
+import { formatPrice } from '../lib/cart';
+import { isAvailable, type PublicProduct } from '../server/products';
+import type { Storefront } from '../server/storefront';
+
+interface Props {
+  locale: Locale;
+  product: PublicProduct;
+  store: Storefront;
+}
+
+const { locale, product, store } = Astro.props;
+const t = getDictionary(locale);
+const alternates = Object.fromEntries(locales.map((l) => [l, productPath(l, product.slug)]));
+const productUrl = new URL(productPath(locale, product.slug), Astro.site ?? Astro.url).href;
+const whatsappHref = whatsappLink(interpolate(t.product.whatsappMessage, { product: product.name, url: productUrl }));
+const related = store.products.filter((p) => p.slug !== product.slug).slice(0, 3);
+const [mainImage, ...moreImages] = product.images;
+const canBuy = store.selling && isAvailable(product);
+const soldOut = product.priceCents !== null && product.stock !== null && product.stock <= 0;
+const ogImage = mainImage ? new URL(mainImage.url, Astro.site ?? Astro.url).href : undefined;
+---
+
+<BaseLayout
+  locale={locale}
+  title={interpolate(t.meta.productTitle, { product: product.name })}
+  description={product.short || product.description.slice(0, 155)}
+  alternates={alternates}
+  ogImage={ogImage}
+>
+  <Header locale={locale} alternates={alternates} selling={store.selling} current="products" />
+  <main id="conteudo" class="product-page">
+    <div class="container">
+      <nav class="breadcrumb" aria-label={t.a11y.breadcrumb}>
+        <a href={productsPath(locale)}>
+          <Icon name="arrow-left" size={18} />
+          {t.product.backToCatalog}
+        </a>
+      </nav>
+
+      <article class="product">
+        <div class="product__gallery" data-gallery>
+          <figure class="product__media">
+            {mainImage && <ProductImage image={mainImage} sizes="(max-width: 899px) 92vw, 560px" eager class="product__main-image" />}
+          </figure>
+          {
+            moreImages.length > 0 && (
+              <ul class="product__thumbs" role="list">
+                {product.images.map((img, index) => (
+                  <li>
+                    <button
+                      type="button"
+                      class="product__thumb"
+                      aria-pressed={index === 0 ? 'true' : 'false'}
+                      aria-label={img.alt}
+                      data-full={img.url}
+                      data-alt={img.alt}
+                    >
+                      <img src={img.thumbUrl} alt="" width="96" height="96" loading="lazy" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+        </div>
+
+        <div class="product__content">
+          <ul class="product__categories" aria-label={t.product.category}>
+            {product.categories.map((id) => <li>{getCategory(id).label[locale]}</li>)}
+          </ul>
+          <h1>{product.name}</h1>
+          <p class="product__price">
+            {
+              product.priceCents === null ? (
+                <span class="price price--request">{t.store.priceOnRequest}</span>
+              ) : (
+                <>
+                  <span class="price">{formatPrice(product.priceCents, localeSettings[locale].intl)}</span>
+                  <span class="price__note">{t.store.vatIncluded}</span>
+                  {soldOut && <span class="product__soldout">{t.store.soldOut}</span>}
+                </>
+              )
+            }
+          </p>
+          {
+            canBuy && product.stock !== null && product.stock <= 5 && (
+              <p class="product__stock">{interpolate(t.store.lowStock, { count: product.stock })}</p>
+            )
+          }
+          {product.description && <p class="product__description">{product.description}</p>}
+
+          <div class="product__actions">
+            {canBuy && <AddToCart product={product} locale={locale} />}
+            <a
+              class:list={['btn magnetic', canBuy ? 'btn--outline' : 'btn--primary']}
+              href={quotePath(locale, product.slug, 'catalogo')}
+            >
+              {canBuy ? t.store.askPrice : t.product.cta}
+              {!canBuy && <Icon name="arrow-right" />}
+            </a>
+            {
+              whatsappHref && (
+                <a class="btn btn--outline magnetic" href={whatsappHref} rel="noopener" target="_blank" data-product-whatsapp>
+                  <Icon name="message" />
+                  {t.product.whatsappCta}
+                </a>
+              )
+            }
+          </div>
+
+          <div class="product__info">
+            <h2>{t.product.infoTitle}</h2>
+            <p>{t.product.infoText}</p>
+            <ul>
+              {
+                t.featured.topics.map((topic) => (
+                  <li>
+                    <Icon name="check" size={18} />
+                    {topic}
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      {
+        related.length > 0 && (
+          <section class="related" aria-labelledby="related-title">
+            <h2 id="related-title">{t.product.relatedTitle}</h2>
+            <ul class="related__grid" role="list">
+              {related.map((p) => (
+                <li>
+                  <ProductCard product={p} locale={locale} selling={store.selling} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </div>
+  </main>
+  <Footer locale={locale} legal={store.settings.legal} />
+  {store.selling && <CartDrawer locale={locale} settings={store.settings} />}
+</BaseLayout>
+
+<script>
+  // Galeria: as miniaturas trocam a imagem principal.
+  const gallery = document.querySelector<HTMLElement>('[data-gallery]');
+  const main = gallery?.querySelector<HTMLImageElement>('.product__main-image');
+  gallery?.addEventListener('click', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.product__thumb');
+    if (!button || !main) return;
+    main.removeAttribute('srcset');
+    main.src = button.dataset.full ?? main.src;
+    main.alt = button.dataset.alt ?? main.alt;
+    gallery.querySelectorAll('.product__thumb').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+  });
+</script>
+
+<style>
+  .product-page {
+    padding-block: 1.5rem var(--section-space);
+  }
+
+  .breadcrumb a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-block: 0.5rem;
+    color: var(--ink-soft);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--blue-ink);
+  }
+
+  .product {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2rem, 1.5rem + 4vw, 5.5rem);
+    align-items: start;
+    margin-top: 1.5rem;
+  }
+
+  .product__media {
+    max-width: 480px;
+    margin: 0;
+  }
+
+  .product__media :global(img) {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 70vh;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .product__content {
+    display: grid;
+    gap: 1.4rem;
+    justify-items: start;
+    position: sticky;
+    top: calc(var(--header-h) + 2rem);
+  }
+
+  .product__thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+    list-style: none;
+  }
+
+  .product__thumb {
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-sand);
+    cursor: pointer;
+  }
+
+  .product__thumb[aria-pressed='true'] {
+    border-color: var(--orange);
+  }
+
+  .product__thumb img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+  }
+
+  .product__price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+
+  .product__price .price:not(.price--request) {
+    font-size: 1.9rem;
+  }
+
+  .product__soldout,
+  .product__stock {
+    font-weight: 700;
+    color: var(--orange-ink);
+  }
+
+  .product__example {
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: var(--orange-soft);
+    color: var(--warning-ink);
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+
+  .product__categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+  }
+
+  .product__categories li {
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    background: var(--sage);
+    color: var(--sage-ink);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .product__content h1 {
+    font-size: var(--step-3);
+  }
+
+  .product__description {
+    font-size: 1.08rem;
+    color: var(--ink-soft);
+  }
+
+  .product__info {
+    display: grid;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  .product__info h2 {
+    font-size: 1.2rem;
+  }
+
+  .product__info p {
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+  }
+
+  .product__info ul {
+    display: grid;
+    gap: 0.4rem;
+    list-style: none;
+    margin-top: 0.3rem;
+  }
+
+  .product__info li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .product__info li :global(svg) {
+    color: var(--sage-ink);
+  }
+
+  .product__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  .related {
+    margin-top: var(--section-space);
+  }
+
+  .related h2 {
+    font-size: var(--step-2);
+    margin-bottom: 2rem;
+  }
+
+  .related__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+    gap: 1.5rem;
+    list-style: none;
+  }
+
+  .related__grid > li {
+    display: flex;
+  }
+
+  .related__grid > li > :global(*) {
+    flex: 1;
+  }
+
+  @media (max-width: 899px) {
+    .product {
+      grid-template-columns: 1fr;
+    }
+
+    .product__content {
+      position: static;
+    }
+
+    .product__media {
+      max-width: 560px;
+    }
+  }
+
+  @media (max-width: 479px) {
+    .product__actions {
+      flex-direction: column;
+      width: 100%;
+    }
+  }
+</style>

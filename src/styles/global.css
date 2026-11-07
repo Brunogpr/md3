@@ -1,0 +1,478 @@
+/* ============================================================
+   MOLDEA.es — tokens e estilos base
+   Cores medidas no ficheiro original da logo (laranja #FFA806, azul #01B1FD, preto #222224).
+   ============================================================ */
+:root {
+  /* Marca */
+  --blue: #01a3ea;
+  --blue-ink: #006b9e; /* azul com contraste AA para texto pequeno */
+  --blue-soft: #e1f4fd;
+  --orange: #ffa30d;
+  --orange-hover: #ffb43d;
+  --orange-deep: #f57c00;
+  --orange-ink: #a34c00; /* laranja com contraste AA para texto pequeno */
+  --orange-soft: #fff1da;
+  --on-accent: #1f2024; /* texto sobre laranja: 8,9:1 */
+  --ink: #1f2024;
+  --ink-soft: #464953;
+  --muted: #686c76;
+
+  /* Superfícies */
+  --bg: #fafafb;
+  --bg-sand: #f1f3f6;
+  --bg-sand-deep: #e5e8ee;
+  --surface: #ffffff;
+  --glass: rgb(255 255 255 / 0.86);
+  --header-bg: rgb(250 250 251 / 0.84);
+  --sage: #e7f0ea;
+  --sage-ink: #33694b;
+  --line: #e3e5ea;
+  --line-strong: #c9cdd6;
+  /* Elementos de contraste (chips ativos, selos, botão escuro). */
+  --contrast-bg: #1f2024;
+  --contrast-fg: #ffffff;
+  /* Faixas sempre escuras (personalização, cartão "ideia"). */
+  --band-bg: #1c1d22;
+  --band-surface: #26282f;
+
+  /* Estados */
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #1e7a46;
+  --success-soft: #e5f4ea;
+  --warning-ink: #7a3700;
+
+  /* Tipografia */
+  --font-display: 'Outfit Variable', 'Outfit', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --step--1: clamp(0.84rem, 0.82rem + 0.1vw, 0.9rem);
+  --step-0: clamp(1rem, 0.97rem + 0.15vw, 1.0625rem);
+  --step-1: clamp(1.15rem, 1.08rem + 0.35vw, 1.35rem);
+  --step-2: clamp(1.4rem, 1.25rem + 0.7vw, 1.85rem);
+  --step-3: clamp(1.85rem, 1.5rem + 1.6vw, 2.9rem);
+  --step-4: clamp(2.4rem, 1.7rem + 3.2vw, 4.4rem);
+
+  /* Espaçamento e forma */
+  --gutter: clamp(1rem, 0.6rem + 2vw, 2rem);
+  --section-space: clamp(4.5rem, 3rem + 6vw, 8.5rem);
+  --container: 1200px;
+  --radius-sm: 10px;
+  --radius: 18px;
+  --radius-lg: 28px;
+  --shadow-sm: 0 1px 2px rgb(24 32 43 / 0.06), 0 2px 8px rgb(24 32 43 / 0.04);
+  --shadow: 0 2px 6px rgb(24 32 43 / 0.05), 0 18px 40px -18px rgb(24 32 43 / 0.22);
+  --shadow-lg: 0 30px 70px -30px rgb(24 32 43 / 0.35);
+  --header-h: 76px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Motivo de "camadas" de impressão 3D */
+  --layers: repeating-linear-gradient(0deg, transparent 0 9px, rgb(255 255 255 / 0.22) 9px 11px);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 12px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+
+body.menu-open {
+  overflow: hidden;
+}
+
+img,
+picture,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: var(--blue-ink);
+  text-underline-offset: 0.2em;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--orange-soft);
+  color: var(--ink);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- Utilitários ---------- */
+.container {
+  width: min(100% - 2 * var(--gutter), var(--container));
+  margin-inline: auto;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  padding: 0.75rem 1.25rem;
+  background: var(--contrast-bg);
+  color: var(--contrast-fg);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+.section {
+  padding-block: var(--section-space);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--blue-ink);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 1.75rem;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--orange);
+}
+
+.section-heading {
+  display: grid;
+  gap: 1rem;
+  max-width: 44rem;
+  margin-bottom: clamp(2.5rem, 2rem + 2vw, 4rem);
+}
+
+.section-heading--center {
+  margin-inline: auto;
+  text-align: center;
+  justify-items: center;
+}
+
+.section-heading h2 {
+  font-size: var(--step-3);
+}
+
+.section-heading p {
+  font-size: var(--step-1);
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+/* ---------- Botões ---------- */
+.btn {
+  --btn-bg: var(--contrast-bg);
+  --btn-fg: var(--contrast-fg);
+  --btn-border: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.8rem 1.5rem;
+  border: 2px solid var(--btn-border);
+  border-radius: 999px;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 0.25s var(--ease),
+    box-shadow 0.25s var(--ease),
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.btn svg {
+  width: 1.15em;
+  height: 1.15em;
+  flex-shrink: 0;
+  transition: transform 0.25s var(--ease);
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.btn:hover svg {
+  transform: translateX(3px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Laranja da marca com texto escuro: contraste 7,7:1 */
+.btn--primary {
+  --btn-bg: var(--orange);
+  --btn-fg: var(--on-accent);
+}
+
+.btn--primary:hover {
+  --btn-bg: var(--orange-hover);
+}
+
+.btn--dark {
+  --btn-bg: var(--contrast-bg);
+  --btn-fg: var(--contrast-fg);
+}
+
+.btn--dark:hover {
+  --btn-bg: var(--contrast-bg);
+  opacity: 0.92;
+}
+
+.btn--outline {
+  --btn-bg: transparent;
+  --btn-fg: var(--ink);
+  --btn-border: var(--line-strong);
+}
+
+.btn--outline:hover {
+  --btn-bg: var(--surface);
+  --btn-border: var(--ink);
+}
+
+.btn--light {
+  --btn-bg: #fff;
+  --btn-fg: #1f2024;
+}
+
+.btn--small {
+  min-height: 2.6rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9rem;
+}
+
+.btn[disabled],
+.btn[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: progress;
+  transform: none;
+  box-shadow: none;
+}
+
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--orange);
+  padding-bottom: 2px;
+}
+
+.text-link:hover {
+  color: var(--blue-ink);
+  border-color: var(--blue);
+}
+
+.text-link svg {
+  width: 1em;
+  height: 1em;
+}
+
+/* ---------- Revelação suave ao entrar no ecrã ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.8s var(--ease),
+      transform 0.8s var(--ease);
+  }
+
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- Títulos palavra a palavra ---------- */
+.split-words .word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+.split-words .word__inner {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .js .split-words .word__inner {
+    transform: translateY(105%);
+    transition: transform 0.85s var(--ease);
+    transition-delay: calc(var(--stagger, 0ms) + var(--i, 0) * 70ms);
+  }
+
+  .js .split-words.is-visible .word__inner {
+    transform: none;
+  }
+
+  .js .reveal {
+    transition-delay: var(--stagger, 0ms);
+  }
+
+  .magnetic {
+    transition:
+      translate 0.25s var(--ease),
+      transform 0.25s var(--ease),
+      box-shadow 0.25s var(--ease),
+      background-color 0.2s ease;
+  }
+
+  .tilt {
+    position: relative;
+    transform-style: preserve-3d;
+    transition:
+      opacity 0.8s var(--ease),
+      transform 0.4s var(--ease),
+      box-shadow 0.35s var(--ease),
+      border-color 0.3s ease;
+    will-change: transform;
+  }
+
+  .tilt::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(circle at var(--glare-x, 50%) var(--glare-y, 0%), rgb(255 255 255 / 0.18), transparent 55%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .tilt:hover::after {
+    opacity: 1;
+  }
+}
+
+/* ---------- Preços ---------- */
+.price {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.price--request {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--blue-ink);
+}
+
+.price__note {
+  font-size: 0.78rem;
+  color: var(--muted);
+}

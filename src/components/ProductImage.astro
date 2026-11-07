@@ -1,0 +1,32 @@
+---
+// Fotografia de produto guardada na base de dados (Vercel Blob ou local): já otimizada em WebP
+// no envio, com miniatura (640 px) e versão grande (até 1600 px).
+import type { PublicImage } from '../server/products';
+
+interface Props {
+  image: PublicImage;
+  sizes: string;
+  eager?: boolean;
+  /** true quando o nome do produto já está ao lado (evita repetir no leitor de ecrã). */
+  decorative?: boolean;
+  class?: string;
+}
+
+const { image, sizes, eager = false, decorative = false, class: className } = Astro.props;
+const same = image.url === image.thumbUrl;
+const thumbWidth = Math.min(640, image.width);
+const srcset = same ? undefined : `${image.thumbUrl} ${thumbWidth}w, ${image.url} ${image.width}w`;
+---
+
+<img
+  class={className}
+  src={same ? image.url : image.thumbUrl}
+  srcset={srcset}
+  sizes={srcset ? sizes : undefined}
+  width={image.width}
+  height={image.height}
+  alt={decorative ? '' : image.alt}
+  loading={eager ? 'eager' : 'lazy'}
+  fetchpriority={eager ? 'high' : undefined}
+  decoding="async"
+/>

@@ -1,0 +1,528 @@
+---
+import Icon from './Icon.astro';
+import { getDictionary, localeSettings, productPath, type Locale } from '../i18n';
+import { sectionIds, siteConfig, telLink, whatsappLink } from '../config/site';
+import { requestTypes, contactPreferences, DESCRIPTION_MAX, NAME_MAX } from '../lib/quote-validation';
+import type { PublicProduct } from '../server/products';
+
+interface Props {
+  locale: Locale;
+  products: PublicProduct[];
+  /** URL da política de privacidade (configurações da loja). */
+  privacyUrl?: string;
+}
+
+const { locale, products, privacyUrl } = Astro.props;
+const t = getDictionary(locale);
+const f = t.quote.fields;
+const { email, phone, whatsapp } = siteConfig.contact;
+
+// Dados mínimos de que o script do formulário precisa (sem enviar os dicionários inteiros).
+const clientData = JSON.stringify({
+  locale: localeSettings[locale].htmlLang,
+  whatsappNumber: whatsapp,
+  errors: t.quote.errors,
+  status: t.quote.status,
+  submit: t.quote.submit,
+  submitting: t.quote.submitting,
+  messageLabels: t.quote.message,
+  requestTypes: t.quote.requestTypes,
+  contactPreferences: t.quote.contactPreferences,
+  productNone: f.productNone,
+  productNames: Object.fromEntries(products.map((p) => [p.slug, p.name])),
+  productPaths: Object.fromEntries(products.map((p) => [p.slug, productPath(locale, p.slug)])),
+}).replace(/</g, '\\u003c');
+---
+
+<section class="section quote" id={sectionIds.quote} aria-labelledby="quote-title">
+  <div class="container quote__grid">
+    <div class="quote__intro reveal">
+      <p class="eyebrow">{t.quote.eyebrow}</p>
+      <h2 id="quote-title">{t.quote.title}</h2>
+      <p class="quote__text">{t.quote.text}</p>
+
+      <div class="quote__contact">
+        <h3>{t.quote.contactTitle}</h3>
+        {
+          email || phone || whatsapp ? (
+            <ul>
+              {email && (
+                <li>
+                  <Icon name="mail" size={20} />
+                  <span class="visually-hidden">{t.quote.emailLabel}: </span>
+                  <a href={`mailto:${email}`}>{email}</a>
+                </li>
+              )}
+              {phone && (
+                <li>
+                  <Icon name="phone" size={20} />
+                  <span class="visually-hidden">{t.quote.phoneLabel}: </span>
+                  <a href={telLink(phone)}>{phone}</a>
+                </li>
+              )}
+              {whatsapp && (
+                <li>
+                  <Icon name="message" size={20} />
+                  <a href={whatsappLink(t.quote.whatsappGeneralMessage)} rel="noopener" target="_blank">
+                    {t.quote.whatsappLabel}
+                  </a>
+                </li>
+              )}
+            </ul>
+          ) : (
+            <p>{t.quote.contactPending}</p>
+          )
+        }
+      </div>
+    </div>
+
+    <form class="quote-form reveal" novalidate data-quote-form aria-labelledby="quote-title">
+      <script type="application/json" data-quote-i18n set:html={clientData} is:inline />
+
+      <p class="quote-form__hint">{t.quote.requiredHint}</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="q-name">{f.name} <span class="req" aria-hidden="true">*</span></label>
+          <input id="q-name" name="name" type="text" autocomplete="name" maxlength={NAME_MAX} required aria-describedby="q-name-error" />
+          <p class="field__error" id="q-name-error" hidden></p>
+        </div>
+        <div class="field">
+          <label for="q-email">{f.email} <span class="req" aria-hidden="true">*</span></label>
+          <input id="q-email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="160" required aria-describedby="q-email-error" />
+          <p class="field__error" id="q-email-error" hidden></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="q-phone">{f.phone} <span class="optional">({f.optional})</span></label>
+        <input id="q-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="24" aria-describedby="q-phone-hint q-phone-error" />
+        <p class="field__hint" id="q-phone-hint">{f.phoneHint}</p>
+        <p class="field__error" id="q-phone-error" hidden></p>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="q-product">{f.product} <span class="req" aria-hidden="true">*</span></label>
+          <select id="q-product" name="product" required aria-describedby="q-product-error">
+            <option value="" disabled selected>{f.productPlaceholder}</option>
+            {products.map((p) => <option value={p.slug}>{p.name}</option>)}
+            <option value="nenhum">{f.productNone}</option>
+          </select>
+          <p class="field__error" id="q-product-error" hidden></p>
+        </div>
+        <div class="field">
+          <label for="q-type">{f.requestType} <span class="req" aria-hidden="true">*</span></label>
+          <select id="q-type" name="requestType" required aria-describedby="q-type-error">
+            <option value="" disabled selected>{f.productPlaceholder}</option>
+            {requestTypes.map((type) => <option value={type}>{t.quote.requestTypes[type]}</option>)}
+          </select>
+          <p class="field__error" id="q-type-error" hidden></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="q-description">{f.description} <span class="req" aria-hidden="true">*</span></label>
+        <textarea id="q-description" name="description" rows="6" maxlength={DESCRIPTION_MAX} required aria-describedby="q-description-hint q-description-error"></textarea>
+        <div class="field__meta">
+          <p class="field__hint" id="q-description-hint">{f.descriptionHint}</p>
+          <span class="field__counter" data-counter aria-hidden="true">0/{DESCRIPTION_MAX}</span>
+        </div>
+        <p class="field__error" id="q-description-error" hidden></p>
+      </div>
+
+      <fieldset class="field field--choices" aria-describedby="q-contactPreference-error">
+        <legend>{f.contactPreference} <span class="req" aria-hidden="true">*</span></legend>
+        <div class="choices">
+          {
+            contactPreferences.map((pref, index) => (
+              <label class="choice">
+                <input type="radio" name="contactPreference" value={pref} checked={index === 0} />
+                <span>{t.quote.contactPreferences[pref]}</span>
+              </label>
+            ))
+          }
+        </div>
+        <p class="field__error" id="q-contactPreference-error" hidden></p>
+      </fieldset>
+
+      <div class="field field--consent">
+        <label class="consent">
+          <input id="q-consent" name="consent" type="checkbox" required aria-describedby="q-consent-error" />
+          <span>
+            {f.consent} <span class="req" aria-hidden="true">*</span>
+            {privacyUrl && (
+              <>
+                {' '}
+                <a href={privacyUrl}>{f.privacyLink}</a>
+              </>
+            )}
+          </span>
+        </label>
+        <p class="field__error" id="q-consent-error" hidden></p>
+      </div>
+
+      <!-- Armadilha anti-spam: invisível para pessoas, preenchida por robôs. -->
+      <div class="honeypot" aria-hidden="true">
+        <label for="q-website">{f.honeypot}</label>
+        <input id="q-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+      </div>
+
+      <div class="quote-form__footer">
+        <button class="btn btn--primary quote-form__submit" type="submit" data-submit aria-describedby="q-whatsapp-note">
+          <Icon name="message" />
+          <span data-submit-label>{t.quote.submit}</span>
+        </button>
+        <p class="quote-form__note" id="q-whatsapp-note">{t.quote.whatsappNote}</p>
+      </div>
+
+      <div class="quote-form__status" role="status" aria-live="polite" data-status hidden></div>
+    </form>
+  </div>
+</section>
+
+<script>
+  import '../scripts/quote-form';
+</script>
+
+<style>
+  .quote__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(2rem, 1.5rem + 4vw, 6rem);
+    align-items: start;
+  }
+
+  .quote__intro {
+    display: grid;
+    gap: 1.25rem;
+    position: sticky;
+    top: calc(var(--header-h) + 2rem);
+  }
+
+  .quote__intro h2 {
+    font-size: var(--step-3);
+  }
+
+  .quote__text {
+    color: var(--ink-soft);
+    font-size: var(--step-1);
+  }
+
+  .quote__contact {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 1.4rem 1.5rem;
+    border-radius: var(--radius);
+    background: var(--bg-sand);
+  }
+
+  .quote__contact h3 {
+    font-size: 1.05rem;
+  }
+
+  .quote__contact ul {
+    display: grid;
+    gap: 0.6rem;
+    list-style: none;
+  }
+
+  .quote__contact li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .quote__contact li :global(svg) {
+    color: var(--blue-ink);
+  }
+
+  .quote__contact a {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .quote__contact p {
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+  }
+
+  .quote-form {
+    display: grid;
+    gap: 1.3rem;
+    padding: clamp(1.25rem, 0.75rem + 2.5vw, 2.75rem);
+    border-radius: calc(var(--radius-lg) + 4px);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+
+  .quote-form__hint {
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.3rem;
+  }
+
+  .field {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  fieldset.field {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .field label,
+  .field legend {
+    font-weight: 700;
+    font-size: 0.93rem;
+  }
+
+  .field legend {
+    padding: 0;
+    margin-bottom: 0.45rem;
+  }
+
+  .req {
+    color: var(--orange-ink);
+  }
+
+  .optional {
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .field input:not([type='radio'], [type='checkbox']),
+  .field select,
+  .field textarea {
+    width: 100%;
+    min-height: 3.1rem;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--bg);
+    font-size: 1rem; /* evita zoom automático no iOS */
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .field select {
+    appearance: none;
+    padding-right: 2.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2318202b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    text-overflow: ellipsis;
+  }
+
+  .field textarea {
+    resize: vertical;
+    min-height: 9rem;
+    line-height: 1.55;
+  }
+
+  .field input:not([type='radio'], [type='checkbox']):hover,
+  .field select:hover,
+  .field textarea:hover {
+    border-color: var(--muted);
+  }
+
+  .field input:not([type='radio'], [type='checkbox']):focus-visible,
+  .field select:focus-visible,
+  .field textarea:focus-visible {
+    outline: none;
+    border-color: var(--blue);
+    background-color: var(--surface);
+    box-shadow: 0 0 0 4px rgb(1 163 234 / 0.2);
+  }
+
+  .field [aria-invalid='true'] {
+    border-color: var(--danger) !important;
+    background-color: var(--danger-soft) !important;
+  }
+
+  .field__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .field__hint,
+  .field__counter {
+    font-size: 0.84rem;
+    color: var(--muted);
+  }
+
+  .field__counter {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field__error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--danger);
+  }
+
+  .field__error::before {
+    content: '!';
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: 0.1rem;
+    border-radius: 50%;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .choice {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.9rem;
+    padding: 0.55rem 1.1rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 999px;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .choice:has(input:checked) {
+    border-color: var(--blue);
+    background: var(--blue-soft);
+  }
+
+  .choice:has(input:focus-visible) {
+    outline: 3px solid var(--blue);
+    outline-offset: 2px;
+  }
+
+  .choice input,
+  .consent input {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+    accent-color: var(--blue);
+    flex-shrink: 0;
+  }
+
+  .consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-weight: 500 !important;
+    font-size: 0.93rem !important;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+
+  .consent input {
+    margin-top: 0.2rem;
+  }
+
+  .honeypot {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .quote-form__footer {
+    display: grid;
+    justify-items: start;
+    gap: 0.8rem;
+    margin-top: 0.3rem;
+  }
+
+  .quote-form__note {
+    font-size: 0.84rem;
+    color: var(--muted);
+    max-width: 38rem;
+  }
+
+  .quote-form__submit {
+    min-width: 13rem;
+  }
+
+  .quote-form__status {
+    display: grid;
+    gap: 0.6rem;
+    padding: 1rem 1.15rem;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-sand);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .quote-form__status[data-tone='info'] {
+    background: var(--blue-soft);
+    border-color: rgb(8 125 213 / 0.3);
+    color: var(--ink);
+  }
+
+  .quote-form__status[data-tone='error'] {
+    background: var(--danger-soft);
+    border-color: rgb(180 35 24 / 0.3);
+    color: var(--danger);
+  }
+
+  .quote-form__status[data-tone='warning'] {
+    background: var(--orange-soft);
+    border-color: rgb(176 79 0 / 0.3);
+    color: var(--warning-ink);
+  }
+
+  .quote-form__status :global(a) {
+    justify-self: start;
+  }
+
+  @media (max-width: 1023px) {
+    .quote__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .quote__intro {
+      position: static;
+    }
+  }
+
+  @media (max-width: 599px) {
+    .field-row {
+      grid-template-columns: 1fr;
+    }
+
+    .quote-form__submit {
+      width: 100%;
+    }
+  }
+</style>

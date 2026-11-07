@@ -1,0 +1,101 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { parseSettingsForm, priceToInput, type FormErrors } from '../../lib/admin-forms';
+import { getStoreSettings, missingLegal, saveStoreSettings, type StoreSettings } from '../../server/settings';
+import { getPaymentGateway } from '../../server/payments';
+
+export const prerender = false;
+
+let settings: StoreSettings = await getStoreSettings();
+let errors: FormErrors = {};
+const gateway = getPaymentGateway();
+
+if (Astro.request.method === 'POST') {
+  const parsed = parseSettingsForm(await Astro.request.formData());
+  errors = parsed.errors;
+  const candidate: StoreSettings = { ...parsed.values };
+  if (candidate.storeEnabled && missingLegal(candidate).length > 0) {
+    errors.storeEnabled = 'Para ativar a loja é obrigatório indicar Aviso legal, Política de privacidade e Condições de venda.';
+  }
+  if (Object.keys(errors).length === 0) {
+    await saveStoreSettings(candidate);
+    return Astro.redirect('/admin/configuracoes?ok=1', 303);
+  }
+  settings = candidate;
+  Astro.response.status = 422;
+}
+const err = (k: string) => errors[k];
+---
+
+<AdminLayout title="Configurações" section="configuracoes">
+  <div class="admin-head"><h1>Configurações da loja</h1></div>
+  {Astro.url.searchParams.get('ok') && <p class="notice notice--ok" role="status">Configurações guardadas.</p>}
+  {Object.keys(errors).length > 0 && <p class="notice notice--error" role="alert">Reveja os campos assinalados.</p>}
+
+  <section class="panel">
+    <h2>Pagamentos (Stripe)</h2>
+    {
+      gateway?.name === 'stripe' ? (
+        <p class="notice notice--ok">Stripe configurado.</p>
+      ) : gateway?.name === 'fake' ? (
+        <p class="notice notice--warn">Modo de teste automático (PAYMENTS_FAKE). Não usar em produção.</p>
+      ) : (
+        <p class="notice notice--warn">
+          Stripe não configurado: defina STRIPE_SECRET_KEY e STRIPE_WEBHOOK_SECRET nas variáveis do projeto na Vercel (ver README).
+        </p>
+      )
+    }
+  </section>
+
+  <form method="post" class="panel" novalidate>
+    <h2>Venda online</h2>
+    <label class="check">
+      <input type="checkbox" name="storeEnabled" checked={settings.storeEnabled} />
+      Loja ativa (mostrar carrinho e permitir pagamentos)
+    </label>
+    {err('storeEnabled') && <p class="f__error">{err('storeEnabled')}</p>}
+
+    <h2>Envio</h2>
+    <div class="form-grid">
+      <div class="f">
+        <label for="shipping">Portes por encomenda (€, IVA incluído)</label>
+        <input id="shipping" name="shipping" inputmode="decimal" value={priceToInput(settings.shippingCents)} placeholder="0,00 = grátis" />
+        {err('shipping') && <p class="f__error">{err('shipping')}</p>}
+      </div>
+      <div class="f">
+        <label for="freeShippingFrom">Portes grátis a partir de (€)</label>
+        <input id="freeShippingFrom" name="freeShippingFrom" inputmode="decimal" value={priceToInput(settings.freeShippingFromCents)} placeholder="vazio = nunca" />
+        {err('freeShippingFrom') && <p class="f__error">{err('freeShippingFrom')}</p>}
+      </div>
+      <div class="f span-2">
+        <label for="shippingCountries">Países para onde envia (códigos de 2 letras)</label>
+        <input id="shippingCountries" name="shippingCountries" value={settings.shippingCountries.join(', ')} placeholder="ES, PT" />
+        {err('shippingCountries') && <p class="f__error">{err('shippingCountries')}</p>}
+      </div>
+    </div>
+
+    <h2>Documentos legais</h2>
+    <p class="hint">
+      Em Espanha, para vender online são obrigatórios: Aviso legal (LSSI-CE, com NIF e morada da empresa), Política de
+      privacidade (RGPD) e Condições de venda (incluindo o direito de desistência de 14 dias). Indique o endereço de cada
+      documento publicado.
+    </p>
+    <div class="form-grid">
+      {
+        [
+          ['legalNoticeUrl', 'Aviso legal *'],
+          ['privacyUrl', 'Política de privacidade *'],
+          ['termsUrl', 'Condições de venda *'],
+          ['cookiesUrl', 'Política de cookies (se aplicável)'],
+        ].map(([key, label]) => (
+          <div class="f">
+            <label for={key}>{label}</label>
+            <input id={key} name={key} type="url" value={settings.legal[key as keyof StoreSettings['legal']]} placeholder="https://…" />
+            {err(key) && <p class="f__error">{err(key)}</p>}
+          </div>
+        ))
+      }
+    </div>
+    <div class="actions"><button type="submit" class="btn btn--primary">Guardar configurações</button></div>
+  </form>
+</AdminLayout>

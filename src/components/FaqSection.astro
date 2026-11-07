@@ -1,0 +1,110 @@
+---
+// Perguntas frequentes: só descrevem o funcionamento do site (sem prazos ou garantias não definidos).
+import { getDictionary, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+  selling: boolean;
+}
+
+const { locale, selling } = Astro.props;
+const t = getDictionary(locale);
+const items = t.faq.items.filter((item) => selling || !item.storeOnly);
+---
+
+<section class="section section--narrow faq" id="faq" aria-labelledby="faq-title">
+  <div class="container faq__inner">
+    <div class="section-heading section-heading--center reveal">
+      <p class="eyebrow">{t.faq.eyebrow}</p>
+      <h2 id="faq-title" class="split-words">{t.faq.title}</h2>
+    </div>
+    <div class="faq__list" data-faq>
+      {
+        items.map((item, index) => (
+          <details class="faq__item reveal" name="faq" open={index === 0}>
+            <summary>
+              {item.question}
+              <span class="faq__icon" aria-hidden="true" />
+            </summary>
+            <p>{item.answer}</p>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq__inner {
+    max-width: 820px;
+  }
+
+  .faq__list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .faq__item {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+
+  .faq__item[open] {
+    border-color: var(--line-strong);
+  }
+
+  .faq__item summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.15rem 1.35rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .faq__item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq__icon {
+    position: relative;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--orange-soft);
+  }
+
+  .faq__icon::before,
+  .faq__icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--orange-ink);
+    translate: -50% -50%;
+    transition: rotate 0.3s var(--ease);
+  }
+
+  .faq__icon::after {
+    rotate: 90deg;
+  }
+
+  .faq__item[open] .faq__icon::after {
+    rotate: 0deg;
+  }
+
+  .faq__item p {
+    padding: 0 1.35rem 1.25rem;
+    color: var(--ink-soft);
+  }
+</style>

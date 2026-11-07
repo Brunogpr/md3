@@ -1,0 +1,406 @@
+---
+import { Image } from 'astro:assets';
+import Icon from './Icon.astro';
+import logoLight from '../assets/brand/logo-wordmark.png';
+import { getDictionary, homePath, productsPath, quotePath, localeSettings, publishedLocales, type Locale } from '../i18n';
+import { sectionIds } from '../config/site';
+
+interface Props {
+  locale: Locale;
+  alternates?: Partial<Record<Locale, string>>;
+  /** Mostra o botão do carrinho (loja ativa e com pagamentos configurados). */
+  selling?: boolean;
+  /** Página atual, para marcar o link do menu. */
+  current?: 'products';
+}
+
+const { locale, alternates = {}, selling = false, current } = Astro.props;
+const t = getDictionary(locale);
+
+const links = [
+  { href: homePath(locale, sectionIds.home), label: t.nav.home },
+  { href: productsPath(locale), label: t.nav.products, current: current === 'products' },
+  { href: homePath(locale, sectionIds.customization), label: t.nav.customization },
+  { href: homePath(locale, sectionIds.about), label: t.nav.about },
+];
+---
+
+<header class="site-header" data-header>
+  <div class="container site-header__inner">
+    <a class="site-header__logo" href={homePath(locale)} aria-label={t.a11y.homeLink}>
+      <Image src={logoLight} alt="" height={40} densities={[1, 2]} loading="eager" />
+    </a>
+
+    <nav class="site-nav" id="site-nav" aria-label={t.a11y.mainNav} data-nav>
+      <ul class="site-nav__list">
+        {
+          links.map((link) => (
+            <li>
+              <a class="site-nav__link" href={link.href} data-nav-link aria-current={'current' in link && link.current ? 'page' : undefined}>
+                {link.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div class="site-nav__end">
+        <ul class="lang" aria-label={t.a11y.languageSelector}>
+          {
+            publishedLocales.map((l) => {
+              const settings = localeSettings[l];
+              return (
+                <li>
+                  {l === locale ? (
+                    <span class="lang__item lang__item--current" aria-current="true" lang={settings.htmlLang}>
+                      {settings.label}
+                    </span>
+                  ) : (
+                    <a class="lang__item" href={alternates[l] ?? homePath(l)} hreflang={settings.htmlLang} lang={settings.htmlLang}>
+                      {settings.label}
+                    </a>
+                  )}
+                </li>
+              );
+            })
+          }
+        </ul>
+        <a class="btn btn--primary btn--small site-header__cta" href={quotePath(locale)} data-nav-link>
+          {t.nav.quoteCta}
+        </a>
+      </div>
+    </nav>
+
+    <div class="header-actions">
+      {
+        selling && (
+          <button class="icon-btn cart-toggle" type="button" data-cart-open aria-haspopup="dialog" aria-controls="cart-drawer">
+            <Icon name="bag" size={21} />
+            <span class="visually-hidden">{t.cart.open}</span>
+            <span class="cart-toggle__count" data-cart-count aria-live="polite" hidden>
+              0
+            </span>
+          </button>
+        )
+      }
+      <button
+        class="menu-toggle icon-btn"
+        type="button"
+        aria-expanded="false"
+        aria-controls="site-nav"
+        data-menu-toggle
+        data-label-open={t.a11y.openMenu}
+        data-label-close={t.a11y.closeMenu}
+      >
+        <span class="visually-hidden" data-menu-label>{t.a11y.openMenu}</span>
+        <Icon name="menu" class="menu-toggle__open" />
+        <Icon name="close" class="menu-toggle__close" />
+      </button>
+    </div>
+  </div>
+  <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+</header>
+
+<script>
+  import '../scripts/header';
+</script>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--header-bg);
+    backdrop-filter: saturate(1.4) blur(14px);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition:
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+
+  .site-header.is-scrolled {
+    border-color: var(--line);
+    box-shadow: 0 8px 30px -22px rgb(24 32 43 / 0.45);
+  }
+
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    min-height: var(--header-h);
+  }
+
+  .site-header__logo {
+    display: block;
+    flex-shrink: 0;
+    border-radius: 8px;
+  }
+
+  .site-header__logo img {
+    height: 40px;
+    width: auto;
+    transition: height 0.3s var(--ease);
+  }
+
+  /* Cabeçalho compacto depois de começar a rolar. */
+  .site-header__inner {
+    transition: min-height 0.3s var(--ease);
+  }
+
+  .site-header.is-scrolled .site-header__inner {
+    min-height: calc(var(--header-h) - 12px);
+  }
+
+  .site-header.is-scrolled .site-header__logo img {
+    height: 34px;
+  }
+
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-left: auto;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .icon-btn {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+      border-color 0.2s ease,
+      transform 0.2s var(--ease);
+  }
+
+  .icon-btn:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-1px);
+  }
+
+  .cart-toggle__count {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--orange);
+    color: var(--on-accent);
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .cart-toggle__count.is-bumping {
+    animation: bump 0.4s var(--ease);
+  }
+
+  @keyframes bump {
+    40% {
+      transform: scale(1.35);
+    }
+  }
+
+  /* Barra de progresso de leitura (gradiente da barra da logo). */
+  .scroll-progress {
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    height: 3px;
+    width: 100%;
+    transform-origin: 0 50%;
+    transform: scaleX(var(--progress, 0));
+    background: linear-gradient(90deg, var(--orange-deep), #ffd21f 45%, var(--blue));
+    pointer-events: none;
+  }
+
+  .site-nav__list {
+    display: flex;
+    gap: 0.25rem;
+    list-style: none;
+  }
+
+  .site-nav__link {
+    position: relative;
+    display: block;
+    padding: 0.6rem 0.85rem;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 0.97rem;
+    text-decoration: none;
+    border-radius: 999px;
+    transition: background-color 0.2s ease;
+  }
+
+  .site-nav__link:hover {
+    background: var(--bg-sand);
+  }
+
+  .site-nav__link[aria-current='page'] {
+    color: var(--orange-ink);
+  }
+
+  a.lang__item:hover {
+    background: var(--bg-sand);
+  }
+
+  .site-nav__end {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+  }
+
+  .lang {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    list-style: none;
+    padding: 0.2rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .lang__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .lang__item--current {
+    background: var(--contrast-bg);
+    color: var(--contrast-fg);
+  }
+
+
+  .menu-toggle {
+    display: none;
+  }
+
+  /* :global porque os SVG são renderizados pelo componente Icon (fora deste escopo). */
+  .menu-toggle :global(.menu-toggle__close) {
+    display: none;
+  }
+
+  .menu-toggle[aria-expanded='true'] :global(.menu-toggle__open) {
+    display: none;
+  }
+
+  .menu-toggle[aria-expanded='true'] :global(.menu-toggle__close) {
+    display: block;
+  }
+
+  @media (max-width: 1023px) {
+    .site-header__logo img,
+    .site-header.is-scrolled .site-header__logo img {
+      height: 30px;
+    }
+
+    .site-nav {
+      margin-left: 0;
+    }
+
+    .menu-toggle {
+      display: grid;
+    }
+
+    .site-nav {
+      position: fixed;
+      inset: var(--header-h) 0 0 0;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 2rem;
+      padding: 1.5rem var(--gutter) calc(2rem + env(safe-area-inset-bottom));
+      background: var(--bg);
+      border-top: 1px solid var(--line);
+      overflow-y: auto;
+      visibility: hidden;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition:
+        opacity 0.25s ease,
+        transform 0.3s var(--ease),
+        visibility 0s linear 0.3s;
+    }
+
+    .site-nav.is-open {
+      visibility: visible;
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.25s ease,
+        transform 0.3s var(--ease),
+        visibility 0s;
+    }
+
+    .site-nav__list {
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .site-nav__link {
+      padding: 1rem 0.25rem;
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      border-radius: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .site-nav__link:hover {
+      background: none;
+      color: var(--blue-ink);
+    }
+
+    .site-nav__end {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1.25rem;
+    }
+
+    .lang {
+      align-self: flex-start;
+      font-size: 0.9rem;
+    }
+
+    .site-header__cta {
+      min-height: 3.25rem;
+      font-size: 1rem;
+    }
+  }
+
+  /* Com JS o menu móvel fica fechado por omissão; sem JS fica sempre visível no fluxo. */
+  @media (max-width: 1023px) {
+    :global(html:not(.js)) .site-nav {
+      position: static;
+      visibility: visible;
+      opacity: 1;
+      transform: none;
+    }
+
+    :global(html:not(.js)) .menu-toggle {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,66 @@
+---
+// Pré-visualização do dragão animado (só no painel).
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import DragonRig from '../../components/DragonRig.astro';
+
+export const prerender = false;
+const states = [
+  ['', 'Parado (respira, mexe a cabeça, abana a cauda)'],
+  ['is-walking', 'A andar'],
+  ['is-looking', 'A olhar à volta'],
+  ['is-jumping', 'A saltar'],
+] as const;
+---
+
+<AdminLayout title="Dragão animado">
+  <div class="admin-head"><h1>Dragão animado</h1></div>
+  <p class="hint">Pré-visualização dos estados usados no banner.</p>
+  <section class="panel dragon-grid" data-dragon-preview>
+    {
+      states.map(([state, label]) => (
+        <figure>
+          <div class="dragon-box" data-state={state}>
+            <DragonRig />
+          </div>
+          <figcaption>{label}</figcaption>
+        </figure>
+      ))
+    }
+  </section>
+</AdminLayout>
+
+<script>
+  // Aplica o estado de cada caixa; acenar e saltar repetem a cada 2,5 s.
+  for (const box of document.querySelectorAll<HTMLElement>('.dragon-box')) {
+    const svg = box.querySelector<HTMLElement>('[data-dragon-rig]')!;
+    const state = box.dataset.state;
+    if (!state) continue;
+    if (state === 'is-walking') svg.classList.add(state);
+    else {
+      const run = () => {
+        svg.classList.remove(state);
+        void svg.getBoundingClientRect();
+        svg.classList.add(state);
+      };
+      run();
+      setInterval(run, 2500);
+    }
+  }
+</script>
+
+<style>
+  .dragon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .dragon-grid figure {
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  .dragon-box {
+    padding: 1.5rem 1rem 0.5rem;
+    border-radius: 16px;
+    background: var(--bg-sand);
+  }
+</style>

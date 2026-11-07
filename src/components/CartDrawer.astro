@@ -1,0 +1,300 @@
+---
+import Icon from './Icon.astro';
+import { getDictionary, interpolate, localeSettings, productsPath, type Locale } from '../i18n';
+import { formatPrice } from '../lib/cart';
+import type { StoreSettings } from '../server/settings';
+
+interface Props {
+  locale: Locale;
+  settings: StoreSettings;
+}
+
+const { locale, settings } = Astro.props;
+const t = getDictionary(locale);
+const intl = localeSettings[locale].intl;
+
+const clientData = JSON.stringify({
+  locale,
+  intl,
+  shippingCents: settings.shippingCents,
+  freeShippingFromCents: settings.freeShippingFromCents,
+  labels: {
+    remove: t.cart.remove,
+    increase: t.cart.increase,
+    decrease: t.cart.decrease,
+    quantity: t.cart.quantity,
+    freeShipping: t.cart.freeShipping,
+    added: t.store.added,
+    itemsCount: t.cart.itemsCount,
+    itemsCountOne: t.cart.itemsCountOne,
+    checkout: t.cart.checkout,
+    checkingOut: t.cart.checkingOut,
+    errors: t.cart.errors,
+  },
+}).replace(/</g, '\\u003c');
+---
+
+<dialog class="cart" id="cart-drawer" aria-labelledby="cart-title" data-cart>
+  <script type="application/json" data-cart-config set:html={clientData} is:inline />
+  <div class="cart__panel">
+    <header class="cart__header">
+      <h2 id="cart-title">{t.cart.title}</h2>
+      <span class="cart__count" data-cart-summary></span>
+      <button type="button" class="cart__close" data-cart-close aria-label={t.cart.close}>
+        <Icon name="close" />
+      </button>
+    </header>
+
+    <div class="cart__empty" data-cart-empty>
+      <Icon name="bag" size={40} />
+      <p>{t.cart.empty}</p>
+      <a class="btn btn--outline" href={productsPath(locale)} data-cart-close>{t.cart.continueShopping}</a>
+    </div>
+
+    <ul class="cart__lines" data-cart-lines role="list"></ul>
+
+    <footer class="cart__footer" data-cart-footer hidden>
+      <dl class="cart__totals">
+        <div><dt>{t.cart.subtotal}</dt><dd data-cart-subtotal></dd></div>
+        <div><dt>{t.cart.shipping}</dt><dd data-cart-shipping></dd></div>
+        <div class="cart__total"><dt>{t.cart.total}</dt><dd data-cart-total></dd></div>
+      </dl>
+      {
+        settings.freeShippingFromCents !== null && settings.shippingCents > 0 && (
+          <p class="cart__note">
+            {interpolate(t.cart.freeShippingFrom, { amount: formatPrice(settings.freeShippingFromCents, intl) })}
+          </p>
+        )
+      }
+      <p class="cart__error" role="alert" data-cart-error hidden></p>
+      <button type="button" class="btn btn--primary cart__checkout" data-cart-checkout>
+        <Icon name="lock" size={18} />
+        <span data-cart-checkout-label>{t.cart.checkout}</span>
+      </button>
+      <p class="cart__note">
+        {t.cart.termsPrefix} <a href={settings.legal.termsUrl} target="_blank" rel="noopener">{t.cart.termsLink}</a>.
+        {t.cart.secure}
+      </p>
+    </footer>
+  </div>
+</dialog>
+
+<p class="visually-hidden" role="status" aria-live="polite" data-cart-announce></p>
+
+<script>
+  import '../scripts/cart';
+</script>
+
+<style>
+  .cart {
+    inset: 0 0 0 auto;
+    width: min(440px, 100vw);
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .cart::backdrop {
+    background: rgb(10 12 16 / 0.45);
+    backdrop-filter: blur(3px);
+  }
+
+  .cart[open] {
+    animation: slide-in 0.35s var(--ease);
+  }
+
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+
+  .cart__panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .cart__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .cart__header h2 {
+    font-size: 1.4rem;
+  }
+
+  .cart__count {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .cart__close {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    margin-left: auto;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .cart__empty {
+    display: grid;
+    justify-items: center;
+    gap: 1rem;
+    margin: auto;
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .cart__lines {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0.5rem 1.5rem;
+  }
+
+  .cart__lines:empty {
+    display: none;
+  }
+
+  .cart__lines :global(li) {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 0.9rem;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .cart__lines :global(img) {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 12px;
+    background: var(--bg-sand);
+  }
+
+  .cart__lines :global(.cart-line__name) {
+    font-weight: 700;
+    color: var(--ink);
+    text-decoration: none;
+    line-height: 1.3;
+  }
+
+  .cart__lines :global(.cart-line__price) {
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  .cart__lines :global(.qty) {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.4rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+  }
+
+  .cart__lines :global(.qty button) {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 999px;
+  }
+
+  .cart__lines :global(.qty button:disabled) {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .cart__lines :global(.qty output) {
+    min-width: 1.8rem;
+    text-align: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cart__lines :global(.cart-line__end) {
+    display: grid;
+    justify-items: end;
+    gap: 0.4rem;
+    font-weight: 700;
+  }
+
+  .cart__lines :global(.cart-line__remove) {
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .cart__footer {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1.25rem 1.5rem calc(1.25rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+  }
+
+  .cart__totals {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+  }
+
+  .cart__totals div {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .cart__totals dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cart__total {
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--line-strong);
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .cart__checkout {
+    width: 100%;
+  }
+
+  .cart__note {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .cart__error {
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+</style>

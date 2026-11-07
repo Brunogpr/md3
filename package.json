@@ -1,0 +1,56 @@
+{
+  "name": "m3d-moldea-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Site e loja online da MOLDEA.es — Creamos ideas en 3D",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "assets": "node scripts/prepare-assets.mjs && node scripts/prepare-dragon.mjs",
+    "verify": "npm run check && npm run lint && npm run test && npm run build && npm run test:e2e",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/db-migrate.ts",
+    "db:seed": "node scripts/db-seed.ts",
+    "admin:create": "node scripts/admin-create.ts",
+    "setup": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "@astrojs/netlify": "^8.2.12",
+    "@astrojs/node": "^11.1.11",
+    "@astrojs/sitemap": "^3.7.4",
+    "@fontsource-variable/outfit": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
+    "@libsql/client": "^0.18.0",
+    "@netlify/blobs": "^11.1.8",
+    "astro": "^7.4.2",
+    "drizzle-orm": "^0.45.4",
+    "sharp": "^0.35.5",
+    "stripe": "^23.1.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^10.13.0",
+    "eslint-plugin-astro": "^3.2.1",
+    "globals": "^17.13.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  },
+  "allowScripts": {
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

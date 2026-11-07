@@ -1,0 +1,51 @@
+---
+// Páginas públicas localizadas, renderizadas no servidor com os produtos da base de dados:
+//   pt: /      /produtos/      /produtos/<slug>/
+//   es: /es/   /es/productos/  /es/productos/<slug>/
+//   en: /en/   /en/products/   /en/products/<slug>/
+import HomeView from '../views/HomeView.astro';
+import ProductView from '../views/ProductView.astro';
+import ProductsView from '../views/ProductsView.astro';
+import { localeSettings, publishedLocales, type Locale } from '../i18n';
+import { loadStorefront } from '../server/storefront';
+
+export const prerender = false;
+
+const segments = (Astro.params.route ?? '').split('/').filter(Boolean);
+
+// Resolve idioma e página a partir do caminho; qualquer outra coisa é 404.
+let locale: Locale | undefined;
+let slug: string | undefined;
+let view: 'home' | 'products' | 'product' | undefined;
+for (const l of publishedLocales) {
+  const { pathPrefix, productSegment } = localeSettings[l];
+  const prefix = pathPrefix.replace(/^\//, '');
+  const rest = prefix ? (segments[0] === prefix ? segments.slice(1) : null) : segments;
+  if (!rest) continue;
+  if (rest.length === 0) {
+    locale = l;
+    view = 'home';
+  } else if (rest.length === 1 && rest[0] === productSegment) {
+    locale = l;
+    view = 'products';
+  } else if (rest.length === 2 && rest[0] === productSegment && /^[a-z0-9-]{1,120}$/.test(rest[1])) {
+    locale = l;
+    view = 'product';
+    slug = rest[1];
+  }
+  if (view) break;
+}
+
+if (!locale || !view) return new Response(null, { status: 404, statusText: 'Not found' });
+
+const store = await loadStorefront(locale);
+const product = slug ? store.products.find((p) => p.slug === slug) : undefined;
+if (view === 'product' && !product) return new Response(null, { status: 404, statusText: 'Not found' });
+
+// Páginas públicas podem ficar em cache curta no CDN (preços/stock mudam no painel).
+Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+---
+
+{view === 'home' && <HomeView locale={locale} store={store} />}
+{view === 'products' && <ProductsView locale={locale} store={store} />}
+{view === 'product' && <ProductView locale={locale} product={product!} store={store} />}

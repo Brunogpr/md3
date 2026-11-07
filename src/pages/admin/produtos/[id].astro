@@ -1,0 +1,313 @@
+---
+// Criar (/admin/produtos/novo) ou editar (/admin/produtos/<id>) um produto.
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { categories } from '../../../data/categories';
+import { parseProductForm, priceToInput, type FormErrors, type ProductFormValues } from '../../../lib/admin-forms';
+import {
+  addProductImage,
+  countHomeProducts,
+  createProduct,
+  deleteProduct,
+  deleteProductImage,
+  getProduct,
+  makeCoverImage,
+  slugExists,
+  updateImageAlt,
+  updateProduct,
+} from '../../../server/products';
+import { deleteStoredFiles, storeProductImage, UploadError } from '../../../server/storage';
+import { productPath } from '../../../i18n';
+
+export const prerender = false;
+
+/** Número máximo de produtos na página inicial. */
+const HOME_LIMIT = 4;
+
+const isNew = Astro.params.id === 'novo';
+const id = isNew ? null : Number(Astro.params.id);
+if (!isNew && (!Number.isInteger(id) || id! <= 0)) return Astro.redirect('/admin', 303);
+
+let product = id ? await getProduct(id) : null;
+if (id && !product) return Astro.redirect('/admin', 303);
+
+const MAX_IMAGES = 10;
+let errors: FormErrors = {};
+let uploadErrors: string[] = [];
+let values: ProductFormValues | null = null;
+
+/** Guarda as fotografias enviadas; devolve mensagens de erro por ficheiro. */
+async function saveUploads(productId: number, files: File[], existing: number): Promise<string[]> {
+  const problems: string[] = [];
+  const room = Math.max(0, MAX_IMAGES - existing);
+  for (const [index, file] of files.filter((f) => f.size > 0).entries()) {
+    if (index >= room) {
+      problems.push(`Máximo de ${MAX_IMAGES} fotografias por produto: "${file.name}" não foi enviada.`);
+      continue;
+    }
+    try {
+      const stored = await storeProductImage(file);
+      await addProductImage(productId, { ...stored, altPt: '', altEs: '', altEn: '' });
+    } catch (error) {
+      problems.push(error instanceof UploadError ? `"${file.name}": ${error.message}` : `"${file.name}": erro ao guardar.`);
+      if (!(error instanceof UploadError)) console.error('[admin] upload', error);
+    }
+  }
+  return problems;
+}
+
+if (Astro.request.method === 'POST') {
+  const fd = await Astro.request.formData();
+  const intent = String(fd.get('intent') ?? 'save');
+  const imageId = Number(fd.get('imageId'));
+
+  if (intent === 'save') {
+    const parsed = parseProductForm(fd);
+    values = parsed.values;
+    errors = parsed.errors;
+    if (!errors.slug && (await slugExists(values.slug, id ?? undefined))) {
+      errors.slug = 'Já existe um produto com este endereço. Escolha outro.';
+    }
+    if (values.featured && (await countHomeProducts(id ?? undefined)) >= HOME_LIMIT) {
+      errors.featured = `A página inicial já tem ${HOME_LIMIT} produtos. Desmarque outro antes de escolher este.`;
+    }
+    if (Object.keys(errors).length === 0) {
+      const files = fd.getAll('images').filter((f): f is File => f instanceof File);
+      const productId = id ?? (await createProduct(values));
+      if (id) await updateProduct(id, values);
+      uploadErrors = await saveUploads(productId, files, product?.images.length ?? 0);
+      if (uploadErrors.length === 0) return Astro.redirect(`/admin/produtos/${productId}?ok=guardado`, 303);
+      // Produto guardado, mas alguma imagem falhou: mostra os erros na página do produto.
+      product = await getProduct(productId);
+      if (isNew) return Astro.redirect(`/admin/produtos/${productId}?ok=guardado&avisos=${uploadErrors.length}`, 303);
+    }
+  } else if (id && intent === 'delete-image' && Number.isInteger(imageId)) {
+    await deleteStoredFiles(await deleteProductImage(imageId, id));
+    return Astro.redirect(`/admin/produtos/${id}?ok=imagem-apagada`, 303);
+  } else if (id && intent === 'cover' && Number.isInteger(imageId)) {
+    await makeCoverImage(imageId, id);
+    return Astro.redirect(`/admin/produtos/${id}?ok=guardado`, 303);
+  } else if (id && intent === 'alt' && Number.isInteger(imageId)) {
+    const alt = (key: string) => String(fd.get(key) ?? '').slice(0, 300);
+    await updateImageAlt(imageId, id, alt('altPt'), alt('altEs'), alt('altEn'));
+    return Astro.redirect(`/admin/produtos/${id}?ok=guardado`, 303);
+  } else if (id && intent === 'delete-product' && fd.get('confirm') === 'on') {
+    await deleteStoredFiles(await deleteProduct(id));
+    return Astro.redirect('/admin?ok=apagado', 303);
+  } else if (intent === 'delete-product') {
+    errors.confirm = 'Marque a confirmação para apagar o produto.';
+  }
+  if (Object.keys(errors).length > 0 || uploadErrors.length > 0) Astro.response.status = 422;
+}
+
+const v: ProductFormValues = values ?? {
+  slug: product?.slug ?? '',
+  namePt: product?.namePt ?? '',
+  nameEs: product?.nameEs ?? '',
+  nameEn: product?.nameEn ?? '',
+  shortPt: product?.shortPt ?? '',
+  shortEs: product?.shortEs ?? '',
+  shortEn: product?.shortEn ?? '',
+  descriptionPt: product?.descriptionPt ?? '',
+  descriptionEs: product?.descriptionEs ?? '',
+  descriptionEn: product?.descriptionEn ?? '',
+  categories: product?.categories ?? [],
+  priceCents: product?.priceCents ?? null,
+  stock: product?.stock ?? null,
+  active: product?.active ?? true,
+  featured: product?.featured ?? false,
+  sortOrder: product?.sortOrder ?? 0,
+};
+const ok = Astro.url.searchParams.get('ok');
+const warnings = Number(Astro.url.searchParams.get('avisos') ?? 0);
+const err = (key: string) => errors[key];
+const title = isNew ? 'Novo produto' : `Editar: ${product?.namePt}`;
+---
+
+<AdminLayout title={title} section="produtos">
+  <div class="admin-head">
+    <h1>{title}</h1>
+    <div class="actions">
+      {product && product.active && <a class="btn btn--outline btn--small" href={productPath('pt', product.slug)} target="_blank" rel="noopener">Ver no site ↗</a>}
+      <a class="btn btn--outline btn--small" href="/admin">← Produtos</a>
+    </div>
+  </div>
+
+  {ok === 'guardado' && warnings === 0 && <p class="notice notice--ok" role="status">Alterações guardadas.</p>}
+  {ok === 'guardado' && warnings > 0 && <p class="notice notice--warn" role="status">Produto guardado, mas {warnings} fotografia(s) não foram aceites. Tente enviá-las de novo.</p>}
+  {ok === 'imagem-apagada' && <p class="notice notice--ok" role="status">Fotografia apagada.</p>}
+  {
+    (Object.keys(errors).length > 0 || uploadErrors.length > 0) && (
+      <div class="notice notice--error" role="alert">
+        Reveja os campos assinalados.
+        {uploadErrors.length > 0 && (
+          <ul>
+            {uploadErrors.map((e) => (
+              <li>{e}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  }
+
+  <form method="post" enctype="multipart/form-data" class="panel" novalidate>
+    <input type="hidden" name="intent" value="save" />
+    <h2>Informação</h2>
+    <div class="form-grid form-grid--3">
+      <div class="f">
+        <label for="namePt">Nome (português) *</label>
+        <input id="namePt" name="namePt" required maxlength="120" value={v.namePt} aria-invalid={err('namePt') ? 'true' : undefined} aria-describedby="namePt-err" />
+        {err('namePt') && <p class="f__error" id="namePt-err">{err('namePt')}</p>}
+      </div>
+      <div class="f">
+        <label for="nameEs">Nome (espanhol)</label>
+        <input id="nameEs" name="nameEs" maxlength="120" value={v.nameEs} />
+        <p class="hint">Se ficar vazio, usa-se o português.</p>
+      </div>
+      <div class="f">
+        <label for="nameEn">Nome (inglês)</label>
+        <input id="nameEn" name="nameEn" maxlength="120" value={v.nameEn} />
+        <p class="hint">Se ficar vazio, usa-se o português.</p>
+      </div>
+      <div class="f">
+        <label for="shortPt">Resumo (português)</label>
+        <input id="shortPt" name="shortPt" maxlength="240" value={v.shortPt} />
+        <p class="hint">Uma frase curta, mostrada no cartão do catálogo.</p>
+      </div>
+      <div class="f">
+        <label for="shortEs">Resumo (espanhol)</label>
+        <input id="shortEs" name="shortEs" maxlength="240" value={v.shortEs} />
+      </div>
+      <div class="f">
+        <label for="shortEn">Resumo (inglês)</label>
+        <input id="shortEn" name="shortEn" maxlength="240" value={v.shortEn} />
+      </div>
+      <div class="f">
+        <label for="descriptionPt">Descrição (português)</label>
+        <textarea id="descriptionPt" name="descriptionPt" maxlength="4000">{v.descriptionPt}</textarea>
+      </div>
+      <div class="f">
+        <label for="descriptionEs">Descrição (espanhol)</label>
+        <textarea id="descriptionEs" name="descriptionEs" maxlength="4000">{v.descriptionEs}</textarea>
+      </div>
+      <div class="f">
+        <label for="descriptionEn">Descrição (inglês)</label>
+        <textarea id="descriptionEn" name="descriptionEn" maxlength="4000">{v.descriptionEn}</textarea>
+      </div>
+      <fieldset class="f span-2">
+        <legend>Categorias</legend>
+        <div class="checks">
+          {
+            categories.map((c) => (
+              <label class="check">
+                <input type="checkbox" name="categories" value={c.id} checked={v.categories.includes(c.id)} />
+                {c.label.pt}
+              </label>
+            ))
+          }
+        </div>
+      </fieldset>
+    </div>
+
+    <h2>Venda</h2>
+    <div class="form-grid">
+      <div class="f">
+        <label for="price">Preço com IVA (€)</label>
+        <input id="price" name="price" inputmode="decimal" placeholder="ex.: 24,90" value={priceToInput(v.priceCents)} aria-invalid={err('price') ? 'true' : undefined} aria-describedby="price-hint" />
+        <p class="hint" id="price-hint">Vazio = "preço sob consulta" (sem compra online, só orçamento).</p>
+        {err('price') && <p class="f__error">{err('price')}</p>}
+      </div>
+      <div class="f">
+        <label for="stock">Stock (unidades)</label>
+        <input id="stock" name="stock" inputmode="numeric" placeholder="vazio = não controlar" value={v.stock ?? ''} aria-invalid={err('stock') ? 'true' : undefined} />
+        <p class="hint">Desconta automaticamente a cada venda paga. 0 = esgotado.</p>
+        {err('stock') && <p class="f__error">{err('stock')}</p>}
+      </div>
+      <div class="f">
+        <label for="slug">Endereço da página</label>
+        <input id="slug" name="slug" maxlength="80" value={v.slug} placeholder="gerado a partir do nome" aria-invalid={err('slug') ? 'true' : undefined} />
+        <p class="hint">Ex.: /produtos/<strong>{v.slug || 'nome-do-produto'}</strong>/</p>
+        {err('slug') && <p class="f__error">{err('slug')}</p>}
+      </div>
+      <div class="f">
+        <label for="sortOrder">Ordem no catálogo</label>
+        <input id="sortOrder" name="sortOrder" type="number" step="1" value={v.sortOrder} />
+        <p class="hint">Números menores aparecem primeiro.</p>
+      </div>
+      <div class="f span-2">
+        <div class="checks">
+          <label class="check"><input type="checkbox" name="active" checked={v.active} /> Publicado (visível no site)</label>
+          <label class="check"><input type="checkbox" name="featured" checked={v.featured} /> Mostrar na página inicial (máx. {HOME_LIMIT})</label>
+        </div>
+        <p class="hint">O primeiro produto escolhido aparece também na secção "Produto em destaque". A lista completa fica na página Produtos.</p>
+        {err('featured') && <p class="f__error">{err('featured')}</p>}
+      </div>
+    </div>
+
+    <h2>Fotografias</h2>
+    <div class="f">
+      <label for="images">Adicionar fotografias (JPG, PNG ou WebP, até 8 MB cada)</label>
+      <input id="images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+      <p class="hint">São otimizadas automaticamente. A primeira é a fotografia principal.</p>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn btn--primary">{isNew ? 'Criar produto' : 'Guardar alterações'}</button>
+    </div>
+  </form>
+
+  {
+    product && product.images.length > 0 && (
+      <section class="panel" aria-labelledby="imgs-title">
+        <h2 id="imgs-title">Fotografias atuais</h2>
+        <ul class="images">
+          {product.images.map((img, index) => (
+            <li>
+              <img src={img.thumbUrl} alt={img.altPt || `Fotografia ${index + 1}`} loading="lazy" />
+              {index === 0 ? <span class="tag tag--ok">principal</span> : (
+                <form method="post">
+                  <input type="hidden" name="intent" value="cover" />
+                  <input type="hidden" name="imageId" value={img.id} />
+                  <button class="btn btn--outline btn--small" type="submit">Tornar principal</button>
+                </form>
+              )}
+              <form method="post" class="f">
+                <input type="hidden" name="intent" value="alt" />
+                <input type="hidden" name="imageId" value={img.id} />
+                <label for={`alt-pt-${img.id}`}>Descrição da imagem (PT)</label>
+                <input id={`alt-pt-${img.id}`} name="altPt" maxlength="300" value={img.altPt} placeholder="Para leitores de ecrã e Google" />
+                <label for={`alt-es-${img.id}`}>Descrição (ES)</label>
+                <input id={`alt-es-${img.id}`} name="altEs" maxlength="300" value={img.altEs} />
+                <label for={`alt-en-${img.id}`}>Descrição (EN)</label>
+                <input id={`alt-en-${img.id}`} name="altEn" maxlength="300" value={img.altEn} />
+                <button class="btn btn--outline btn--small" type="submit">Guardar descrição</button>
+              </form>
+              <form method="post">
+                <input type="hidden" name="intent" value="delete-image" />
+                <input type="hidden" name="imageId" value={img.id} />
+                <button class="btn btn--danger btn--small" type="submit">Apagar fotografia</button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  {
+    product && (
+      <form method="post" class="panel">
+        <input type="hidden" name="intent" value="delete-product" />
+        <h2>Apagar produto</h2>
+        <p class="hint">Remove o produto e as fotografias. As encomendas já feitas mantêm o registo do que foi comprado.</p>
+        <label class="check">
+          <input type="checkbox" name="confirm" /> Confirmo que quero apagar este produto
+        </label>
+        {err('confirm') && <p class="f__error">{err('confirm')}</p>}
+        <div class="actions">
+          <button type="submit" class="btn btn--danger">Apagar produto</button>
+        </div>
+      </form>
+    )
+  }
+</AdminLayout>

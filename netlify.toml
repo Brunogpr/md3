@@ -1,0 +1,7 @@
+# Publicação na Netlify. As migrações da base de dados (Turso) correm antes de cada build.
+[build]
+  command = "npm run db:migrate && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"

@@ -1,0 +1,158 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Icon from '../components/Icon.astro';
+import { getDictionary, homePath, productsPath, type Locale } from '../i18n';
+import { whatsappLink } from '../config/site';
+import { getPaymentGateway } from '../server/payments';
+import { fulfilOrder } from '../server/orders';
+import { getStoreSettings } from '../server/settings';
+
+interface Props {
+  locale: Locale;
+  kind: 'success' | 'cancel';
+}
+
+const { locale, kind } = Astro.props;
+const t = getDictionary(locale);
+const settings = await getStoreSettings();
+
+let state: 'paid' | 'pending' | 'unknown' | 'cancel' = 'cancel';
+let orderRef = '';
+if (kind === 'success') {
+  state = 'unknown';
+  const sessionId = Astro.url.searchParams.get('session_id') ?? '';
+  const gateway = getPaymentGateway();
+  if (gateway && /^cs_[\w-]{4,200}$/.test(sessionId)) {
+    try {
+      // Confirma diretamente na Stripe; nunca se confia só no parâmetro do URL.
+      const session = await gateway.retrieveSession(sessionId);
+      if (session.paymentStatus === 'paid') {
+        const order = await fulfilOrder(session); // idempotente: o webhook pode já ter feito isto
+        state = 'paid';
+        orderRef = (order?.id ?? session.orderId ?? '').slice(0, 8).toUpperCase();
+      } else if (session.status !== 'expired') {
+        state = 'pending';
+      }
+    } catch (error) {
+      console.warn('[checkout] sessão não encontrada', error);
+    }
+  }
+}
+
+const titles = {
+  paid: t.checkout.successTitle,
+  pending: t.checkout.pendingTitle,
+  unknown: t.checkout.unknownTitle,
+  cancel: t.checkout.cancelTitle,
+};
+const texts = {
+  paid: t.checkout.successText,
+  pending: t.checkout.pendingText,
+  unknown: t.checkout.unknownText,
+  cancel: t.checkout.cancelText,
+};
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<BaseLayout locale={locale} title={`${titles[state]} — MOLDEA.es`} description={texts[state]} noindex>
+  <Header locale={locale} />
+  <main id="conteudo" class="result" data-checkout-state={state}>
+    <div class="container result__card">
+      <span class:list={['result__icon', `result__icon--${state}`]} aria-hidden="true">
+        <Icon name={state === 'paid' ? 'check' : state === 'cancel' ? 'close' : 'alert'} size={34} />
+      </span>
+      <h1>{titles[state]}</h1>
+      <p>{texts[state]}</p>
+      {
+        orderRef && (
+          <p class="result__ref">
+            {t.checkout.orderRef}: <strong data-order-ref>{orderRef}</strong>
+          </p>
+        )
+      }
+      <div class="result__actions">
+        {
+          state === 'cancel' ? (
+            <a class="btn btn--primary" href={`${homePath(locale)}#carrinho`}>
+              {t.cart.title}
+            </a>
+          ) : (
+            <a class="btn btn--primary" href={productsPath(locale)}>
+              {t.checkout.backToStore}
+            </a>
+          )
+        }
+        <a class="btn btn--outline" href={whatsappLink(orderRef ? `${t.checkout.orderRef}: ${orderRef}` : undefined)} target="_blank" rel="noopener">
+          <Icon name="message" />
+          {t.checkout.contactUs}
+        </a>
+      </div>
+    </div>
+  </main>
+  <Footer locale={locale} legal={settings.legal} />
+</BaseLayout>
+
+<script>
+  // Pagamento confirmado: o carrinho deste navegador já não é necessário.
+  if (document.querySelector('[data-checkout-state="paid"]')) {
+    try {
+      localStorage.removeItem('moldea-cart-v1');
+    } catch {
+      // sem armazenamento: nada a limpar
+    }
+  }
+</script>
+
+<style>
+  .result {
+    padding-block: var(--section-space);
+  }
+
+  .result__card {
+    display: grid;
+    justify-items: center;
+    gap: 1.1rem;
+    max-width: 640px;
+    text-align: center;
+  }
+
+  .result__card h1 {
+    font-size: var(--step-3);
+  }
+
+  .result__card > p {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+  }
+
+  .result__icon {
+    display: grid;
+    place-items: center;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: var(--orange-soft);
+    color: var(--orange-ink);
+  }
+
+  .result__icon--paid {
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .result__ref {
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    background: var(--bg-sand);
+  }
+
+  .result__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.8rem;
+    margin-top: 0.5rem;
+  }
+</style>

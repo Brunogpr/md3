@@ -1,0 +1,240 @@
+---
+import ProductCard from './ProductCard.astro';
+import Icon from './Icon.astro';
+import { getDictionary, productsPath, quotePath, type Locale } from '../i18n';
+import { sectionIds } from '../config/site';
+import { categories } from '../data/categories';
+import type { PublicProduct } from '../server/products';
+
+interface Props {
+  locale: Locale;
+  products: PublicProduct[];
+  selling: boolean;
+  /** 'home': seleção da página inicial + "Ver todos". 'page': catálogo completo com filtros. */
+  variant?: 'home' | 'page';
+}
+
+const { locale, products, selling, variant = 'home' } = Astro.props;
+const t = getDictionary(locale);
+const isPage = variant === 'page';
+
+// Só mostramos filtros de categorias que têm produtos publicados.
+const usedCategories = categories.filter((c) => products.some((p) => p.categories.includes(c.id)));
+const showFilters = isPage && usedCategories.length > 1;
+const Title = isPage ? 'h1' : 'h2';
+---
+
+<section
+  class:list={['section catalog', { 'catalog--page': isPage }]}
+  id={isPage ? undefined : sectionIds.products}
+  aria-labelledby="catalog-title"
+  data-catalog
+>
+  <div class="container">
+    <div class="catalog__head">
+      <div class="section-heading reveal">
+        <p class="eyebrow">{t.catalog.eyebrow}</p>
+        <Title id="catalog-title" class="split-words">{isPage ? t.catalog.pageTitle : t.catalog.title}</Title>
+        <p>{isPage ? t.catalog.pageSubtitle : t.catalog.subtitle}</p>
+      </div>
+      {
+        !isPage && products.length > 0 && (
+          <a class="btn btn--outline magnetic catalog__all" href={productsPath(locale)}>
+            {t.catalog.viewAll}
+            <Icon name="arrow-right" />
+          </a>
+        )
+      }
+    </div>
+
+    {
+      products.length === 0 ? (
+        <div class="catalog__empty" data-catalog-empty-all>
+          <p>{t.catalog.emptyAll}</p>
+          <a class="btn btn--primary" href={quotePath(locale, undefined, 'personalizado')}>
+            {t.catalog.emptyCta}
+          </a>
+        </div>
+      ) : (
+        <>
+          {showFilters && (
+            <div class="catalog__filters" role="group" aria-label={t.catalog.filterLabel} data-catalog-filters hidden>
+              <button type="button" class="chip" aria-pressed="true" data-filter="all">
+                {t.catalog.filterAll}
+              </button>
+              {usedCategories.map((c) => (
+                <button type="button" class="chip" aria-pressed="false" data-filter={c.id}>
+                  {c.label[locale]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <p
+            class="visually-hidden"
+            role="status"
+            data-catalog-count
+            data-label-many={t.catalog.resultsCount}
+            data-label-one={t.catalog.resultsCountOne}
+          />
+
+          <ul class="catalog__grid" role="list">
+            {products.map((product) => (
+              <li class="reveal" data-catalog-item data-categories={product.categories.join(' ')}>
+                <ProductCard product={product} locale={locale} selling={selling} />
+              </li>
+            ))}
+            {isPage && (
+              <li class="reveal catalog__custom-item">
+                <div class="custom-card">
+                  <span class="custom-card__icon">
+                    <Icon name="lightbulb" size={28} />
+                  </span>
+                  <h2>{t.catalog.customCardTitle}</h2>
+                  <p>{t.catalog.customCardText}</p>
+                  <a class="btn btn--primary magnetic" href={quotePath(locale, undefined, 'personalizado')}>
+                    {t.catalog.customCardCta}
+                    <Icon name="arrow-right" />
+                  </a>
+                </div>
+              </li>
+            )}
+          </ul>
+
+          {showFilters && (
+            <p class="catalog__empty catalog__empty--filtered" data-catalog-empty hidden>
+              {t.catalog.empty}
+            </p>
+          )}
+        </>
+      )
+    }
+  </div>
+</section>
+
+<script>
+  import '../scripts/catalog';
+</script>
+
+<style>
+  .catalog--page {
+    padding-top: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+  }
+
+  .catalog__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    margin-bottom: clamp(2rem, 1.5rem + 2vw, 3rem);
+  }
+
+  .catalog__head .section-heading {
+    margin-bottom: 0;
+  }
+
+  .catalog--page .section-heading :global(h1) {
+    font-size: var(--step-3);
+  }
+
+  .catalog__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 2rem;
+  }
+
+  .chip {
+    min-height: 2.75rem;
+    padding: 0.5rem 1.15rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .chip:hover {
+    border-color: var(--ink);
+  }
+
+  .chip[aria-pressed='true'] {
+    background: var(--contrast-bg);
+    border-color: var(--contrast-bg);
+    color: var(--contrast-fg);
+  }
+
+  /* Até 4 colunas: cartões e imagens mais compactos. */
+  .catalog__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+    gap: clamp(1rem, 0.8rem + 0.8vw, 1.5rem);
+    list-style: none;
+  }
+
+  .catalog__grid > li {
+    display: flex;
+  }
+
+  .catalog__grid > li > :global(*) {
+    flex: 1;
+  }
+
+  .custom-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.9rem;
+    min-height: 100%;
+    padding: 1.75rem 1.5rem;
+    border-radius: var(--radius-lg);
+    background-color: var(--band-bg);
+    background-image:
+      radial-gradient(80% 60% at 100% 0%, rgb(1 163 234 / 0.5), transparent 70%),
+      radial-gradient(70% 50% at 0% 100%, rgb(255 163 13 / 0.35), transparent 70%);
+    color: #fff;
+  }
+
+  .custom-card__icon {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin-bottom: auto;
+    border-radius: 16px;
+    background: rgb(255 255 255 / 0.12);
+    color: var(--orange);
+  }
+
+  .custom-card h2 {
+    font-size: 1.35rem;
+  }
+
+  .custom-card p {
+    color: rgb(255 255 255 / 0.82);
+    font-size: 0.95rem;
+  }
+
+  .catalog__empty {
+    display: grid;
+    justify-items: center;
+    gap: 1.25rem;
+    padding: 3rem 1.5rem;
+    border: 1.5px dashed var(--line-strong);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    color: var(--ink-soft);
+  }
+
+  .catalog__empty--filtered {
+    margin-top: 1.5rem;
+  }
+</style>

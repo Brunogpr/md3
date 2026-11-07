@@ -1,0 +1,95 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { listAllProducts } from '../../server/products';
+import { getStoreSettings, missingLegal } from '../../server/settings';
+import { getPaymentGateway } from '../../server/payments';
+import { formatPrice } from '../../lib/cart';
+
+export const prerender = false;
+
+const [products, settings] = await Promise.all([listAllProducts(), getStoreSettings()]);
+const gateway = getPaymentGateway();
+const missing = missingLegal(settings);
+const blockers = [
+  !gateway && 'Pagamentos Stripe não configurados (variável STRIPE_SECRET_KEY).',
+  missing.length > 0 && 'Faltam documentos legais nas Configurações (Aviso legal, Privacidade e Condições de venda).',
+  !settings.storeEnabled && 'A loja está desativada nas Configurações.',
+].filter(Boolean) as string[];
+const flash = Astro.url.searchParams.get('ok');
+const eur = (c: number) => formatPrice(c, 'pt-PT');
+---
+
+<AdminLayout title="Produtos" section="produtos">
+  <div class="admin-head">
+    <h1>Produtos</h1>
+    <a class="btn btn--primary" href="/admin/produtos/novo">+ Novo produto</a>
+  </div>
+
+  {flash === 'apagado' && <p class="notice notice--ok" role="status">Produto apagado.</p>}
+
+  {
+    blockers.length > 0 ? (
+      <div class="notice notice--warn">
+        As compras online estão desligadas. Os visitantes veem os produtos e podem pedir orçamento.
+        <ul>
+          {blockers.map((b) => (
+            <li>{b}</li>
+          ))}
+        </ul>
+      </div>
+    ) : (
+      <p class="notice notice--ok">Loja ativa: produtos com preço e stock podem ser comprados online.</p>
+    )
+  }
+
+  <section class="panel">
+    {
+      products.length === 0 ? (
+        <p>Ainda não há produtos. Crie o primeiro com o botão "Novo produto".</p>
+      ) : (
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Foto</th>
+                <th scope="col">Nome</th>
+                <th scope="col">Preço</th>
+                <th scope="col">Stock</th>
+                <th scope="col">Estado</th>
+                <th scope="col"><span class="visually-hidden">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr>
+                  <td>{p.images[0] ? <img src={p.images[0].thumbUrl} alt="" loading="lazy" /> : <span class="tag tag--warn">sem foto</span>}</td>
+                  <td>
+                    <strong>{p.namePt}</strong>
+                    {p.featured && <span class="tag">página inicial</span>}
+                    <div class="hint">/{p.slug}</div>
+                  </td>
+                  <td>{p.priceCents === null ? <span class="tag">sob consulta</span> : eur(p.priceCents)}</td>
+                  <td>
+                    {p.stock === null ? (
+                      <span class="hint">não controlado</span>
+                    ) : p.stock <= 0 ? (
+                      <span class="tag tag--warn">esgotado</span>
+                    ) : (
+                      p.stock
+                    )}
+                  </td>
+                  <td>{p.active ? <span class="tag tag--ok">publicado</span> : <span class="tag tag--off">oculto</span>}</td>
+                  <td>
+                    <a class="btn btn--outline btn--small" href={`/admin/produtos/${p.id}`}>
+                      Editar
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
+  </section>
+</AdminLayout>
