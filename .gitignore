@@ -10,6 +10,6 @@ test-results/
 playwright-report/
 screenshots/
 m3d-site.zip
-data/
+/data/
 .vercel/
 .netlify/
